@@ -496,12 +496,12 @@ function renderResumen(nombre,tel,mail){
 }
 
 // ===================== MODAL MP =====================
-async function abrirModalMP(){
+function abrirModalMP(){
   const d=window._r;
   const codigo=genCodigo();
   window._codigoPendiente=codigo;
 
-  // Guardar datos en sessionStorage por si hay redirección
+  // Guardar datos en sessionStorage — persiste cuando MP redirige de vuelta
   const datosReserva = {
     codigo, nombre:d.nombre, tel:d.tel, mail:d.mail,
     fecha:selFecha, hora:selHora, participantes:d.pax,
@@ -509,46 +509,17 @@ async function abrirModalMP(){
   };
   sessionStorage.setItem('jt_reserva', JSON.stringify(datosReserva));
 
-  // Mostrar modal con spinner mientras crea la preferencia
   document.getElementById('modal-desc').innerHTML=
-    `<div style="text-align:center;padding:1rem 0;">
-      <div class="spinner" style="margin:0 auto 1rem;"></div>
-      <p style="color:var(--muted);font-size:.9rem;">Preparando tu pago...</p>
-    </div>`;
-  document.getElementById('modal-mp-link').style.display='none';
+    `Vas a pagar <strong>$${d.total.toLocaleString('es-AR')}</strong> por ${d.pax} participante${d.pax>1?'s':''} el <strong>${d.fStr}</strong> a las <strong>${selHora}:00 hs</strong>.<br><br>Al completar el pago, MP te redirige de vuelta y tu reserva queda confirmada automáticamente.`;
+
+  // Usar link estático de MP directamente
+  document.getElementById('modal-mp-link').href = CFG.mpLink;
+  document.getElementById('modal-mp-link').style.display='block';
   document.getElementById('modal-mp').classList.add('show');
-
-  try {
-    // Crear preferencia de pago via Apps Script
-    const url = CFG.appsScriptURL +
-      '?action=crearPreferencia' +
-      '&datos=' + encodeURIComponent(JSON.stringify(datosReserva)) +
-      '&returnURL=' + encodeURIComponent(window.location.href.split('?')[0]);
-
-    const r    = await fetch(url);
-    const resp = await r.json();
-
-    if (resp.ok && resp.init_point) {
-      // Mostrar botón con link real de MP
-      document.getElementById('modal-desc').innerHTML=
-        `Vas a pagar <strong>$${d.total.toLocaleString('es-AR')}</strong> por ${d.pax} participante${d.pax>1?'s':''} el <strong>${d.fStr}</strong> a las <strong>${selHora}:00 hs</strong>.<br><br>Tu reserva se confirma automáticamente al aprobar el pago.`;
-      const btn = document.getElementById('modal-mp-link');
-      btn.href = resp.init_point;
-      btn.style.display='block';
-    } else {
-      throw new Error(resp.error || 'No se pudo crear el pago');
-    }
-  } catch(e) {
-    document.getElementById('modal-desc').innerHTML=
-      `<p style="color:var(--accent3);font-weight:700;">Error al conectar con Mercado Pago</p>
-       <p style="color:var(--muted);font-size:.85rem;margin-top:.5rem;">${e.message}</p>`;
-    document.getElementById('modal-mp-link').style.display='none';
-  }
 }
 
 function cerrarModal(){
   document.getElementById('modal-mp').classList.remove('show');
-  document.getElementById('modal-mp-link').style.display='block';
 }
 
 // ===================== VERIFICAR PAGO CON MP via APPS SCRIPT =====================
