@@ -348,14 +348,14 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 // ===================== CONFIGURACIÓN =====================
 // ⚠️ COMPLETAR ESTOS DATOS ANTES DE PUBLICAR
 const CFG = {
-  precio: 17000,
+  precio: 100,
   cupos: 40,
   fechaInicio: new Date(2026,6,17),  // 17 julio
   fechaFin:    new Date(2026,7,2),   // 2 agosto
   h0: 12, hF: 19,
 
   // Google Apps Script URL (ver instrucciones)
-  appsScriptURL: 'https://script.google.com/macros/s/AKfycbxs5-fgVytSw__2wsn8MGCt8PW2ezRabMAkTNKubKBqQaXWsy7QJtHDgJ5MDPmdm0Vd/exec',
+  appsScriptURL: 'https://script.google.com/macros/s/AKfycbyAvf6yhZtjboFzCisixaokIy4H6JIaeIXtrWAYMURMBOgUxZdruDoF4NYRv1t0k1Q/exec',
 
   // Google Forms — reemplazá con tu URL real
   // Instrucciones en INSTRUCCIONES.md
@@ -496,42 +496,59 @@ function renderResumen(nombre,tel,mail){
 }
 
 // ===================== MODAL MP =====================
-function abrirModalMP(){
+async function abrirModalMP(){
   const d=window._r;
-  // Generar código y guardar estado en sessionStorage antes de ir a MP
   const codigo=genCodigo();
   window._codigoPendiente=codigo;
-  sessionStorage.setItem('jt_reserva', JSON.stringify({
+
+  // Guardar datos en sessionStorage por si hay redirección
+  const datosReserva = {
     codigo, nombre:d.nombre, tel:d.tel, mail:d.mail,
     fecha:selFecha, hora:selHora, participantes:d.pax,
     total:d.total, promo:d.promo, fStr:d.fStr, pax:d.pax
-  }));
+  };
+  sessionStorage.setItem('jt_reserva', JSON.stringify(datosReserva));
 
+  // Mostrar modal con spinner mientras crea la preferencia
   document.getElementById('modal-desc').innerHTML=
-    `Vas a pagar <strong>$${d.total.toLocaleString('es-AR')}</strong> por ${d.pax} participante${d.pax>1?'s':''} el <strong>${d.fStr}</strong> a las <strong>${selHora}:00 hs</strong>.<br><br>Serás redirigido a Mercado Pago. <strong>Tu reserva solo se confirma si el pago es aprobado.</strong>`;
-
-  // Construir link de MP con external_reference para identificar la reserva
-  const mpUrl = CFG.mpLink + '?external_reference=' + codigo;
-  document.getElementById('modal-mp-link').href = mpUrl;
+    `<div style="text-align:center;padding:1rem 0;">
+      <div class="spinner" style="margin:0 auto 1rem;"></div>
+      <p style="color:var(--muted);font-size:.9rem;">Preparando tu pago...</p>
+    </div>`;
+  document.getElementById('modal-mp-link').style.display='none';
   document.getElementById('modal-mp').classList.add('show');
+
+  try {
+    // Crear preferencia de pago via Apps Script
+    const url = CFG.appsScriptURL +
+      '?action=crearPreferencia' +
+      '&datos=' + encodeURIComponent(JSON.stringify(datosReserva)) +
+      '&returnURL=' + encodeURIComponent(window.location.href.split('?')[0]);
+
+    const r    = await fetch(url);
+    const resp = await r.json();
+
+    if (resp.ok && resp.init_point) {
+      // Mostrar botón con link real de MP
+      document.getElementById('modal-desc').innerHTML=
+        `Vas a pagar <strong>$${d.total.toLocaleString('es-AR')}</strong> por ${d.pax} participante${d.pax>1?'s':''} el <strong>${d.fStr}</strong> a las <strong>${selHora}:00 hs</strong>.<br><br>Tu reserva se confirma automáticamente al aprobar el pago.`;
+      const btn = document.getElementById('modal-mp-link');
+      btn.href = resp.init_point;
+      btn.style.display='block';
+    } else {
+      throw new Error(resp.error || 'No se pudo crear el pago');
+    }
+  } catch(e) {
+    document.getElementById('modal-desc').innerHTML=
+      `<p style="color:var(--accent3);font-weight:700;">Error al conectar con Mercado Pago</p>
+       <p style="color:var(--muted);font-size:.85rem;margin-top:.5rem;">${e.message}</p>`;
+    document.getElementById('modal-mp-link').style.display='none';
+  }
 }
+
 function cerrarModal(){
   document.getElementById('modal-mp').classList.remove('show');
-}
-
-function despuesDePagar(){
-  // NO confirmamos aún — esperamos verificación real del pago
-  cerrarModal();
-  // Buscar payment_id en la URL (MP lo agrega al redirigir)
-  const params = new URLSearchParams(window.location.search);
-  const paymentId = params.get('payment_id') || params.get('collection_id');
-  const status    = params.get('status') || params.get('collection_status');
-  if (paymentId) {
-    verificarPagoMP(paymentId, status);
-  } else {
-    // Abrir MP en nueva pestaña y mostrar pantalla de espera
-    mostrarEspera();
-  }
+  document.getElementById('modal-mp-link').style.display='block';
 }
 
 // ===================== VERIFICAR PAGO CON MP via APPS SCRIPT =====================
