@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Juguemos Todos — Reservas</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fdf6ec;
+  --card:#fff;
+  --accent:#f4831f;
+  --accent2:#2ec4b6;
+  --accent3:#e63946;
+  --yellow:#ffd166;
+  --text:#1a1a2e;
+  --muted:#7a7a9a;
+  --border:#e8e0d5;
+  --promo:#e63946;
+  --success:#2ec4b6;
+  --radius:16px;
+}
+body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* HERO */
+.hero{
+  background: #1a1a2e;
+  padding:2rem 1.5rem 2.5rem;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.hero-confetti{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(244,131,31,0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(46,196,182,0.12) 0%, transparent 50%);
+  pointer-events:none;
+}
+.hero-emoji{font-size:3rem;margin-bottom:0.5rem;display:block;animation:float 3s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.hero h1{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(2rem,7vw,3.2rem);
+  color:#fff;
+  line-height:1.05;
+  margin-bottom:0.4rem;
+}
+.hero h1 span{color:var(--yellow);}
+.hero-sub{color:rgba(255,255,255,0.65);font-size:0.95rem;margin-bottom:1.5rem;}
+.hero-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
+.chip{
+  background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.15);
+  color:rgba(255,255,255,0.85);
+  border-radius:20px;padding:5px 13px;font-size:0.82rem;font-weight:600;
+}
+.chip.hot{background:rgba(230,57,70,0.3);border-color:rgba(230,57,70,0.5);color:#ff8c94;}
+
+/* PROMO STRIP */
+.promo-strip{
+  background:var(--promo);color:#fff;
+  text-align:center;padding:9px 1rem;
+  font-family:'Fredoka One',cursive;font-size:1rem;
+  letter-spacing:0.5px;
+}
+.promo-strip span{font-family:'Quicksand',sans-serif;font-size:0.85rem;font-weight:600;opacity:0.9;}
+
+/* CONTAINER */
+.wrap{max-width:680px;margin:0 auto;padding:1.25rem 1rem 3rem;}
+
+/* STEPS */
+.stepper{display:flex;align-items:center;justify-content:center;gap:0;margin:1.25rem 0 1.5rem;}
+.st{display:flex;align-items:center;gap:5px;font-size:0.78rem;font-weight:700;color:var(--muted);}
+.st.active{color:var(--accent);}
+.st.done{color:var(--success);}
+.st-dot{width:24px;height:24px;border-radius:50%;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0;}
+.st.done .st-dot{background:var(--success);border-color:var(--success);color:#fff;}
+.st.active .st-dot{background:var(--accent);border-color:var(--accent);color:#fff;}
+.st-line{width:28px;height:2px;background:var(--border);margin:0 3px;}
+
+/* CARD */
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1.25rem;box-shadow:0 2px 12px rgba(0,0,0,0.05);}
+.card-head{font-family:'Fredoka One',cursive;font-size:1.15rem;color:var(--text);margin-bottom:1rem;display:flex;align-items:center;gap:8px;}
+.card-head .ico{font-size:1.3rem;}
+
+/* DATE GRID */
+.date-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;}
+.d-btn{
+  background:#fdf6ec;border:1.5px solid var(--border);border-radius:12px;
+  padding:9px 4px;cursor:pointer;text-align:center;transition:all .18s;
+  font-family:'Quicksand',sans-serif;color:var(--text);
+}
+.d-btn:hover{border-color:var(--accent);background:#fff7ef;}
+.d-btn.sel{border-color:var(--accent);background:#fff3e4;box-shadow:0 0 0 3px rgba(244,131,31,0.15);}
+.d-btn.dis{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+.d-dia{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.d-num{font-family:'Fredoka One',cursive;font-size:1.25rem;color:var(--accent);}
+.d-mes{font-size:0.6rem;color:var(--muted);}
+
+/* HOUR GRID */
+.hour-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px;}
+.h-btn{
+  background:#fdf6ec;border:1.5px solid var(--border);border-radius:12px;
+  padding:10px 6px;cursor:pointer;text-align:center;transition:all .18s;
+  font-family:'Quicksand',sans-serif;color:var(--text);position:relative;
+}
+.h-btn:hover:not(.lleno){border-color:var(--accent2);background:#f0fafa;}
+.h-btn.sel{border-color:var(--accent2);background:#e8f9f8;box-shadow:0 0 0 3px rgba(46,196,182,0.15);}
+.h-btn.lleno{opacity:.4;cursor:not-allowed;}
+.h-btn.promo{border-color:rgba(230,57,70,0.35);}
+.h-btn.promo:hover:not(.lleno){border-color:var(--promo);background:#fff5f5;}
+.h-btn.promo.sel{border-color:var(--promo);background:#fff0f0;box-shadow:0 0 0 3px rgba(230,57,70,0.12);}
+.h-time{font-family:'Fredoka One',cursive;font-size:1rem;color:var(--text);}
+.h-cupos{font-size:0.65rem;color:var(--muted);margin-top:2px;}
+.h-btn.lleno .h-time{color:var(--muted);}
+.promo-tag{
+  position:absolute;top:-7px;right:-7px;
+  background:var(--promo);color:#fff;
+  font-size:0.5rem;font-weight:700;padding:2px 5px;border-radius:5px;
+  text-transform:uppercase;letter-spacing:.3px;
+}
+.sold-tag{display:block;font-size:0.6rem;color:var(--promo);font-weight:700;}
+
+/* INFO 2x1 */
+.info-box{
+  background:#fff5f5;border:1px solid rgba(230,57,70,0.2);
+  border-radius:10px;padding:9px 12px;
+  font-size:0.82rem;color:#c0392b;margin-bottom:1rem;
+  display:flex;gap:8px;align-items:flex-start;
+}
+
+/* FORM */
+.fg{margin-bottom:.9rem;}
+.fg label{display:block;font-size:0.78rem;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+.fg input{
+  width:100%;background:#fdf6ec;border:1.5px solid var(--border);
+  border-radius:10px;padding:11px 13px;color:var(--text);
+  font-family:'Quicksand',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s;
+}
+.fg input:focus{border-color:var(--accent2);}
+.fg input::placeholder{color:#b5b5c5;}
+
+/* COUNTER */
+.counter{display:flex;align-items:center;gap:12px;}
+.cnt-btn{
+  width:34px;height:34px;border-radius:50%;
+  border:1.5px solid var(--border);background:#fdf6ec;
+  color:var(--text);font-size:1.2rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .18s;
+}
+.cnt-btn:hover{border-color:var(--accent);color:var(--accent);background:#fff7ef;}
+.cnt-num{font-family:'Fredoka One',cursive;font-size:2rem;color:var(--accent);min-width:36px;text-align:center;}
+.cnt-info{font-size:0.8rem;color:var(--muted);}
+
+/* RESUMEN */
+.resumen{background:#fdf6ec;border:1.5px solid var(--border);border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem;}
+.res-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.9rem;}
+.res-row.total{border-top:1.5px solid var(--border);margin-top:6px;padding-top:9px;font-size:1rem;}
+.res-k{color:var(--muted);}
+.res-v{font-weight:700;}
+.res-v.big{font-family:'Fredoka One',cursive;font-size:1.35rem;color:var(--accent);}
+.res-v.promo{color:var(--promo);}
+.promo-badge{display:inline-block;background:rgba(230,57,70,0.1);border:1px solid rgba(230,57,70,0.3);color:var(--promo);font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:8px;margin-left:6px;}
+
+/* BOTONES */
+.btn{
+  width:100%;border:none;border-radius:12px;padding:15px;
+  font-family:'Fredoka One',cursive;font-size:1.15rem;
+  cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn:hover{transform:translateY(-2px);opacity:.93;}
+.btn:active{transform:scale(.98);}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.btn-next{background:var(--accent);color:#fff;}
+.btn-mp{background:#009ee3;color:#fff;}
+.mp-badge{background:#fff;color:#009ee3;font-family:'Quicksand',sans-serif;font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:6px;}
+.btn-wa{background:#25d366;color:#fff;margin-top:.75rem;}
+
+.seguro{text-align:center;font-size:.78rem;color:var(--muted);margin-top:.6rem;}
+
+/* LOADING */
+#loading{display:none;text-align:center;padding:3rem 1rem;}
+.spinner{width:44px;height:44px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ÉXITO */
+#exito{display:none;text-align:center;padding:1.5rem 1rem 3rem;}
+.exito-ico{font-size:4rem;animation:pop .5s ease;display:block;margin-bottom:.75rem;}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+.exito-titulo{font-family:'Fredoka One',cursive;font-size:1.9rem;color:var(--success);margin-bottom:.4rem;}
+.exito-card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin:1.25rem 0;text-align:left;}
+.ex-row{display:flex;justify-content:space-between;padding:5px 0;font-size:.9rem;border-bottom:1px solid var(--border);}
+.ex-row:last-child{border:none;}
+.ex-k{color:var(--muted);}
+.ex-v{font-weight:700;}
+.codigo-box{
+  background:#f0fafa;border:1.5px solid var(--accent2);
+  border-radius:10px;padding:12px;margin:1rem 0;text-align:center;
+}
+.codigo-label{font-size:.8rem;color:var(--muted);margin-bottom:4px;}
+.codigo-val{font-family:'Fredoka One',cursive;font-size:1.6rem;color:var(--accent2);letter-spacing:2px;}
+.nota-conf{font-size:.82rem;color:var(--muted);line-height:1.5;margin-top:.5rem;}
+.nota-conf strong{color:var(--accent2);}
+
+/* MODAL MP */
+#modal-mp{
+  display:none;position:fixed;inset:0;z-index:999;
+  background:rgba(0,0,0,0.55);
+  align-items:center;justify-content:center;padding:1rem;
+}
+#modal-mp.show{display:flex;}
+.modal-card{
+  background:#fff;border-radius:20px;padding:1.5rem;
+  max-width:420px;width:100%;
+  animation:slideUp .25s ease;
+}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-title{font-family:'Fredoka One',cursive;font-size:1.3rem;color:var(--text);margin-bottom:.75rem;}
+.modal-desc{font-size:.9rem;color:var(--muted);margin-bottom:1.25rem;line-height:1.5;}
+.modal-link{
+  display:block;width:100%;background:#009ee3;color:#fff;
+  border:none;border-radius:10px;padding:13px;
+  font-family:'Fredoka One',cursive;font-size:1.1rem;
+  text-align:center;text-decoration:none;cursor:pointer;margin-bottom:.6rem;
+}
+.modal-cancel{display:block;width:100%;background:none;border:none;color:var(--muted);font-size:.9rem;cursor:pointer;padding:8px;}
+.modal-cancel:hover{color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-confetti"></div>
+  <span class="hero-emoji">🎮</span>
+  <h1>¡<span>Juguemos</span> Todos!</h1>
+  <p class="hero-sub">Vacaciones de Invierno 2025</p>
+  <div class="hero-chips">
+    <span class="chip">📅 Jue 17 Jul → Vie 1 Ago</span>
+    <span class="chip">🕐 12hs a 20hs</span>
+    <span class="chip">👥 40 cupos por hora</span>
+    <span class="chip hot">🎁 Promo 2x1 de 12 a 14hs</span>
+  </div>
+</div>
+
+<!-- PROMO -->
+<div class="promo-strip">
+  🔥 PROMO 2x1 — Horarios 12:00 y 13:00 hs
+  <span>· Pagás por 1, entran 2</span>
+</div>
+
+<div class="wrap">
+
+  <!-- STEPPER -->
+  <div class="stepper">
+    <div class="st active" id="si1"><div class="st-dot">1</div><span>Fecha</span></div>
+    <div class="st-line"></div>
+    <div class="st" id="si2"><div class="st-dot">2</div><span>Horario</span></div>
+    <div class="st-line"></div>
+    <div class="st" id="si3"><div class="st-dot">3</div><span>Datos</span></div>
+    <div class="st-line"></div>
+    <div class="st" id="si4"><div class="st-dot">4</div><span>Pago</span></div>
+  </div>
+
+  <!-- STEP 1: FECHA -->
+  <div class="card" id="s1">
+    <div class="card-head"><span class="ico">📅</span> Elegí tu fecha</div>
+    <div class="date-grid" id="date-grid"></div>
+  </div>
+
+  <!-- STEP 2: HORA -->
+  <div class="card" id="s2" style="display:none">
+    <div class="card-head"><span class="ico">🕐</span> Elegí el horario</div>
+    <div class="info-box">🎁 Los turnos de <strong>12:00 y 13:00 hs</strong> tienen Promo 2x1 — pagás por la mitad de los participantes.</div>
+    <div class="hour-grid" id="hour-grid"></div>
+  </div>
+
+  <!-- STEP 3: DATOS -->
+  <div class="card" id="s3" style="display:none">
+    <div class="card-head"><span class="ico">👤</span> Tus datos</div>
+    <div class="fg"><label>Nombre y Apellido *</label><input type="text" id="inp-nombre" placeholder="Ej: María García" autocomplete="name"></div>
+    <div class="fg"><label>Teléfono / WhatsApp *</label><input type="tel" id="inp-tel" placeholder="Ej: 2914123456" autocomplete="tel"></div>
+    <div class="fg"><label>Email *</label><input type="email" id="inp-mail" placeholder="Ej: tu@gmail.com" autocomplete="email"></div>
+    <div class="fg">
+      <label>Cantidad de participantes *</label>
+      <div class="counter">
+        <button class="cnt-btn" onclick="chgPax(-1)">−</button>
+        <div class="cnt-num" id="pax-num">1</div>
+        <button class="cnt-btn" onclick="chgPax(1)">+</button>
+        <span class="cnt-info" id="pax-info"></span>
+      </div>
+    </div>
+    <button class="btn btn-next" onclick="irPaso4()">Ver resumen →</button>
+  </div>
+
+  <!-- STEP 4: PAGO -->
+  <div class="card" id="s4" style="display:none">
+    <div class="card-head"><span class="ico">💳</span> Resumen y pago</div>
+    <div class="resumen" id="resumen"></div>
+    <button class="btn btn-mp" id="btn-pagar" onclick="abrirModalMP()">
+      Pagar con <span class="mp-badge">MP</span> Mercado Pago
+    </button>
+    <div class="seguro">🔒 Pago seguro · Tu reserva se confirma tras el pago</div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p style="color:var(--muted);font-size:.9rem;">Registrando tu reserva...</p>
+  </div>
+
+  <!-- ÉXITO -->
+  <div id="exito">
+    <span class="exito-ico">🎉</span>
+    <div class="exito-titulo">¡Reserva confirmada!</div>
+    <p style="color:var(--muted);font-size:.9rem;">Tu lugar está asegurado</p>
+    <div class="exito-card" id="exito-detalle"></div>
+    <div class="codigo-box">
+      <div class="codigo-label">Código de reserva</div>
+      <div class="codigo-val" id="exito-codigo"></div>
+    </div>
+    <div class="nota-conf">
+      Recibirás la confirmación en tu email (revisá SPAM).<br>
+      <strong>Guardá este código</strong> — lo vas a necesitar al ingresar.
+    </div>
+    <button class="btn btn-wa" id="btn-wa" onclick="enviarWA()">
+      📱 Enviarme comprobante por WhatsApp
+    </button>
+  </div>
+
+</div><!-- /wrap -->
+
+<!-- MODAL MP -->
+<div id="modal-mp">
+  <div class="modal-card">
+    <div class="modal-title">💳 Ir a pagar</div>
+    <div class="modal-desc" id="modal-desc">Vas a ser redirigido a Mercado Pago para completar el pago.</div>
+    <a class="modal-link" id="modal-mp-link" href="#" target="_blank" onclick="despuesDePagar()">
+      Ir a Mercado Pago →
+    </a>
+    <button class="modal-cancel" onclick="cerrarModal()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+// ===================== CONFIGURACIÓN =====================
+// ⚠️ COMPLETAR ESTOS DATOS ANTES DE PUBLICAR
+const CFG = {
+  precio: 17000,
+  cupos: 40,
+  fechaInicio: new Date(2025,6,17),  // 17 julio
+  fechaFin:    new Date(2025,7,2),   // 2 agosto
+  h0: 12, hF: 19,
+
+  // Google Forms — reemplazá con tu URL real
+  // Instrucciones en INSTRUCCIONES.md
+  googleFormURL: 'https://docs.google.com/forms/u/0/d/e/1FAIpQLSccS0yMmpw2jUDOIgzcXBW1B_B-xCV90alt6C4S52AKwT5p2Q',
+
+  // IDs de campos del Google Form (entry.XXXXXXXX)
+  formFields: {
+    codigo:       'entry.1502567445',  // Código
+    nombre:       'entry.1434971760',  // Nombre
+    tel:          'entry.1305435162',  // Teléfono
+    mail:         'entry.1128183087',  // Email
+    fecha:        'entry.1531472305',  // Fecha
+    hora:         'entry.946611239',   // Hora
+    participantes:'entry.1483674362',  // Participantes
+    total:        'entry.413180930',   // Total
+    promo:        'entry.887775360',   // Promo
+    estado:       'entry.81383143',    // Estado
+  },
+
+  // Link de pago de Mercado Pago (generado desde tu panel MP)
+  // Podés tener un solo link genérico, o uno por turno.
+  // Ver instrucciones para generarlo.
+  mpLink: 'https://mpago.la/1iXh2in',
+
+  // Tu número de WhatsApp (sin +, con código de país)
+  // Ej: 5492914123456
+  whatsappNum: '5492914189133',
+};
+
+const DIAS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+let selFecha=null, selHora=null, pax=1;
+let ocupacion={}; // cargado desde Google Sheets publicada (opcional)
+
+// ===================== INIT =====================
+window.onload = () => {
+  generarFechas();
+  // Si configuraste la URL de Sheets publicada, podés cargar ocupación:
+  cargarOcupacionSheets();
+};
+
+// ===================== FECHAS =====================
+function generarFechas(){
+  const g=document.getElementById('date-grid');
+  g.innerHTML='';
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  let c=new Date(CFG.fechaInicio);
+  while(c<=CFG.fechaFin){
+    const dw=c.getDay();
+    const btn=document.createElement('button');
+    btn.className='d-btn'+(c<hoy?' dis':'');
+    const fk=c.toISOString().split('T')[0];
+    btn.dataset.f=fk;
+    btn.innerHTML=`<div class="d-dia">${DIAS[dw]}</div><div class="d-num">${c.getDate()}</div><div class="d-mes">${MESES[c.getMonth()]}</div>`;
+    btn.addEventListener('click',()=>selDate(fk,btn));
+    g.appendChild(btn);
+    c.setDate(c.getDate()+1);
+  }
+}
+
+function selDate(f,btn){
+  document.querySelectorAll('.d-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  selFecha=f; selHora=null;
+  generarHoras(f);
+  show('s2'); stepDone(1,2);
+  scroll('s2');
+}
+
+// ===================== HORAS =====================
+function generarHoras(f){
+  const g=document.getElementById('hour-grid'); g.innerHTML='';
+  for(let h=CFG.h0;h<=CFG.hF;h++){
+    const k=f+'-'+h;
+    const ocp=ocupacion[k]||0;
+    const lib=CFG.cupos-ocp;
+    const promo=h===12||h===13;
+    const lleno=lib<=0;
+    const btn=document.createElement('button');
+    btn.className='h-btn'+(promo?' promo':'')+(lleno?' lleno':'');
+    btn.dataset.h=h;
+    btn.innerHTML=`${promo?'<span class="promo-tag">2x1</span>':''}<div class="h-time">${h}:00 hs</div><div class="h-cupos">${lleno?'Completo':lib+' cupos libres'}</div>${lleno?'<span class="sold-tag">✗ Sin lugar</span>':''}`;
+    if(!lleno) btn.addEventListener('click',()=>selHour(h,btn,lib));
+    g.appendChild(btn);
+  }
+}
+
+function selHour(h,btn,lib){
+  document.querySelectorAll('.h-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  selHora=h; pax=Math.min(pax,lib);
+  document.getElementById('pax-num').textContent=pax;
+  document.getElementById('pax-info').textContent=lib+' cupos libres';
+  show('s3'); stepDone(2,3);
+  scroll('s3');
+}
+
+// ===================== PAX =====================
+function chgPax(d){
+  const k=selFecha+'-'+selHora;
+  const lib=CFG.cupos-(ocupacion[k]||0);
+  const n=pax+d;
+  if(n<1||n>lib) return;
+  pax=n;
+  document.getElementById('pax-num').textContent=pax;
+}
+
+// ===================== PASO 4 =====================
+function irPaso4(){
+  const nombre=document.getElementById('inp-nombre').value.trim();
+  const tel=document.getElementById('inp-tel').value.trim();
+  const mail=document.getElementById('inp-mail').value.trim();
+  if(!nombre||!tel||!mail){alert('Completá todos los campos obligatorios.');return;}
+  if(!mail.includes('@')){alert('Ingresá un email válido.');return;}
+  if(!selFecha||selHora===null){alert('Elegí fecha y horario primero.');return;}
+  renderResumen(nombre,tel,mail);
+  show('s4'); stepDone(3,4);
+  scroll('s4');
+}
+
+function renderResumen(nombre,tel,mail){
+  const promo=selHora===12||selHora===13;
+  const cobrado=promo?Math.ceil(pax/2):pax;
+  const total=cobrado*CFG.precio;
+  const fObj=new Date(selFecha+'T12:00:00');
+  const fStr=DIAS[fObj.getDay()]+' '+fObj.getDate()+' '+MESES[fObj.getMonth()]+' 2025';
+  window._r={nombre,tel,mail,promo,pax,cobrado,total,fStr};
+  let h=`
+    <div class="res-row"><span class="res-k">Nombre</span><span class="res-v">${nombre}</span></div>
+    <div class="res-row"><span class="res-k">Fecha</span><span class="res-v">${fStr}</span></div>
+    <div class="res-row"><span class="res-k">Horario</span><span class="res-v">${selHora}:00 a ${selHora+1}:00 hs</span></div>
+    <div class="res-row"><span class="res-k">Participantes</span><span class="res-v">${pax} persona${pax>1?'s':''}</span></div>
+  `;
+  if(promo) h+=`<div class="res-row"><span class="res-k">Promo 2x1</span><span class="res-v promo">Pagás ${cobrado} <span class="promo-badge">2x1</span></span></div>`;
+  h+=`<div class="res-row total"><span class="res-k">Total</span><span class="res-v big">$${total.toLocaleString('es-AR')}</span></div>`;
+  document.getElementById('resumen').innerHTML=h;
+}
+
+// ===================== MODAL MP =====================
+function abrirModalMP(){
+  const d=window._r;
+  document.getElementById('modal-desc').innerHTML=
+    `Vas a pagar <strong>$${d.total.toLocaleString('es-AR')}</strong> por ${d.pax} participante${d.pax>1?'s':''} el <strong>${d.fStr}</strong> a las <strong>${selHora}:00 hs</strong>.<br><br>Al volver del pago, tu reserva quedará registrada automáticamente.`;
+  document.getElementById('modal-mp-link').href=CFG.mpLink;
+  document.getElementById('modal-mp').classList.add('show');
+}
+function cerrarModal(){
+  document.getElementById('modal-mp').classList.remove('show');
+}
+
+function despuesDePagar(){
+  // El usuario hizo clic en el link de MP
+  // Cerramos el modal y mostramos la pantalla de éxito
+  cerrarModal();
+  const codigo=genCodigo();
+  guardarReserva(codigo);
+  mostrarExito(codigo);
+}
+
+// ===================== GUARDAR EN GOOGLE FORMS =====================
+function guardarReserva(codigo){
+  const d=window._r;
+  if(!CFG.googleFormURL||CFG.googleFormURL==='TU_GOOGLE_FORM_URL') return;
+  
+  // Construimos la URL de respuesta de Google Forms
+  const params=new URLSearchParams({
+    [CFG.formFields.codigo]: codigo,
+    [CFG.formFields.nombre]: d.nombre,
+    [CFG.formFields.tel]: d.tel,
+    [CFG.formFields.mail]: d.mail,
+    [CFG.formFields.fecha]: selFecha,
+    [CFG.formFields.hora]: selHora+':00',
+    [CFG.formFields.participantes]: d.pax,
+    [CFG.formFields.total]: d.total,
+    [CFG.formFields.promo]: d.promo?'2x1':'No',
+  });
+
+  // Enviamos en segundo plano (no bloqueante)
+  const url=CFG.googleFormURL.replace('/viewform','/formResponse')+'?'+params+'&submit=Submit';
+  fetch(url,{method:'POST',mode:'no-cors'}).catch(()=>{});
+  
+  // Backup: también abrimos el form oculto en iframe
+  const iframe=document.createElement('iframe');
+  iframe.style.display='none';
+  iframe.src=url;
+  document.body.appendChild(iframe);
+  setTimeout(()=>iframe.remove(),5000);
+}
+
+// ===================== ÉXITO =====================
+function mostrarExito(codigo){
+  const d=window._r;
+  ['s1','s2','s3','s4'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='none';
+  });
+  document.getElementById('stepper') && (document.querySelector('.stepper').style.display='none');
+  
+  document.getElementById('exito-detalle').innerHTML=`
+    <div class="ex-row"><span class="ex-k">Nombre</span><span class="ex-v">${d.nombre}</span></div>
+    <div class="ex-row"><span class="ex-k">Fecha</span><span class="ex-v">${d.fStr}</span></div>
+    <div class="ex-row"><span class="ex-k">Horario</span><span class="ex-v">${selHora}:00 a ${selHora+1}:00 hs</span></div>
+    <div class="ex-row"><span class="ex-k">Participantes</span><span class="ex-v">${d.pax} persona${d.pax>1?'s':''}</span></div>
+    ${d.promo?`<div class="ex-row"><span class="ex-k">Promo</span><span class="ex-v" style="color:var(--promo)">2x1 activa ✓</span></div>`:''}
+    <div class="ex-row"><span class="ex-k">Total pagado</span><span class="ex-v" style="color:var(--success)">$${d.total.toLocaleString('es-AR')}</span></div>
+  `;
+  document.getElementById('exito-codigo').textContent=codigo;
+  window._codigo=codigo;
+  document.getElementById('exito').style.display='block';
+  scroll('exito');
+}
+
+// ===================== WHATSAPP =====================
+function enviarWA(){
+  const d=window._r;
+  const codigo=window._codigo;
+  const msg=
+    `✅ *Reserva confirmada - Juguemos Todos*\n\n`+
+    `📅 ${d.fStr}\n`+
+    `🕐 ${selHora}:00 a ${selHora+1}:00 hs\n`+
+    `👥 ${d.pax} participante${d.pax>1?'s':''}\n`+
+    `💳 Total: $${d.total.toLocaleString('es-AR')}\n`+
+    `${d.promo?'🎁 Promo 2x1 aplicada\n':''}`+
+    `🎟️ Código: *${codigo}*\n\n`+
+    `¡Nos vemos ahí! 🎮`;
+  // Envía el comprobante al propio usuario (a sí mismo)
+  window.open('https://wa.me/'+CFG.whatsappNum+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+// ===================== UTILS =====================
+function genCodigo(){return 'JT'+Date.now().toString(36).toUpperCase().slice(-6);}
+function show(id){document.getElementById(id).style.display='block';}
+function scroll(id){setTimeout(()=>document.getElementById(id).scrollIntoView({behavior:'smooth',block:'start'}),100);}
+function stepDone(done,active){
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById('si'+i);
+    if(i<active){el.className='st done';}
+    else if(i===active){el.className='st active';}
+    else{el.className='st';}
+  }
+}
+
+// ===================== OCUPACIÓN DESDE SHEETS PUBLICADA =====================
+// (Opcional) Si publicás tu Google Sheet como CSV, podés cargar la ocupación real.
+// Ver instrucciones para activar esto.
+async function cargarOcupacionSheets(){
+  const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv'; // Ver instrucciones
+  if(SHEET_CSV_URL==='TU_SHEET_CSV_URL') return;
+  try{
+    const r=await fetch(SHEET_CSV_URL);
+    const txt=await r.text();
+    const rows=txt.split('\n').slice(1);
+    rows.forEach(row=>{
+      const cols=row.split(',');
+      if(cols.length<7) return;
+      const fecha=cols[4]?.trim();
+      const hora=parseInt(cols[5]);
+      const paxRow=parseInt(cols[6]);
+      const estado=cols[9]?.trim();
+      if(fecha&&hora&&paxRow&&estado==='Pagado'){
+        const k=fecha+'-'+hora;
+        ocupacion[k]=(ocupacion[k]||0)+paxRow;
+      }
+    });
+  }catch(e){console.log('No se pudo cargar ocupación');}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Juguemos Todos</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f1623;
+  --card:#161f30;
+  --card2:#1d2840;
+  --border:rgba(255,255,255,0.07);
+  --text:#e8edf5;
+  --muted:#5a6a85;
+  --accent:#f4831f;
+  --cyan:#2ec4b6;
+  --green:#34d399;
+  --yellow:#fbbf24;
+  --red:#f87171;
+  --promo:#fb923c;
+  --radius:14px;
+}
+body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── LOGIN ── */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:2.5rem;width:100%;max-width:340px;text-align:center;}
+.login-icon{font-size:3rem;margin-bottom:.5rem;}
+.login-title{font-family:'Fredoka One',cursive;font-size:1.7rem;color:var(--accent);margin-bottom:.2rem;}
+.login-sub{color:var(--muted);font-size:.88rem;margin-bottom:2rem;}
+.l-input{width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'Quicksand',sans-serif;font-size:1rem;outline:none;margin-bottom:.75rem;transition:border-color .2s;}
+.l-input:focus{border-color:var(--accent);}
+.l-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-family:'Fredoka One',cursive;font-size:1.1rem;cursor:pointer;transition:opacity .2s;}
+.l-btn:hover{opacity:.9;}
+.l-err{color:var(--red);font-size:.82rem;margin-top:.5rem;display:none;}
+
+/* ── APP ── */
+#app{display:none;}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-brand{font-family:'Fredoka One',cursive;font-size:1.15rem;color:var(--accent);}
+.topbar-brand span{font-family:'Quicksand',sans-serif;font-size:.78rem;color:var(--muted);font-weight:600;margin-left:8px;}
+.top-right{display:flex;align-items:center;gap:10px;}
+.btn-refresh{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:6px 13px;color:var(--text);font-size:.82rem;cursor:pointer;font-family:'Quicksand',sans-serif;font-weight:700;transition:background .2s;}
+.btn-refresh:hover{background:var(--accent);color:#fff;}
+.last-update{font-size:.72rem;color:var(--muted);}
+.btn-logout{background:none;border:none;color:var(--muted);font-size:.82rem;cursor:pointer;font-family:'Quicksand',sans-serif;}
+.btn-logout:hover{color:var(--red);}
+
+/* ── TABS ── */
+.tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border);padding:0 1.25rem;overflow-x:auto;}
+.tab{padding:12px 16px;font-size:.88rem;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* ── MAIN ── */
+.main{padding:1.25rem;max-width:1080px;margin:0 auto;}
+
+/* ── STAT CARDS ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.25rem;}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:.9rem 1rem;}
+.stat-lbl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.stat-val{font-family:'Fredoka One',cursive;font-size:1.85rem;line-height:1;}
+.stat-sub{font-size:.7rem;color:var(--muted);margin-top:3px;}
+
+/* ── TAB CONTENT ── */
+.tc{display:none;}.tc.active{display:block;}
+
+/* ── FILTERS ── */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center;}
+.f-input{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 11px;color:var(--text);font-family:'Quicksand',sans-serif;font-size:.88rem;outline:none;}
+.f-input:focus{border-color:var(--accent);}
+.f-input[type=text]{min-width:200px;}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:.85rem;}
+thead tr{background:var(--card2);}
+th{padding:9px 11px;text-align:left;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+td{padding:9px 11px;border-top:1px solid var(--border);vertical-align:middle;}
+tr:hover td{background:rgba(244,131,31,0.03);}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.7rem;font-weight:700;text-transform:uppercase;}
+.b-promo{background:rgba(251,146,60,.15);color:var(--promo);}
+.b-normal{background:rgba(244,131,31,.12);color:var(--accent);}
+.b-paid{background:rgba(52,211,153,.12);color:var(--green);}
+.b-pend{background:rgba(251,191,36,.12);color:var(--yellow);}
+.empty-row td{text-align:center;color:var(--muted);padding:2.5rem;font-size:.9rem;}
+
+/* ── AGENDA ── */
+.agenda-fecha{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.9rem;overflow:hidden;}
+.af-header{background:var(--card2);padding:.8rem 1rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
+.af-title{font-family:'Fredoka One',cursive;font-size:1rem;color:var(--cyan);}
+.af-meta{font-size:.78rem;color:var(--muted);}
+.af-body{padding:.75rem;display:none;}
+.agenda-fecha.open .af-body{display:block;}
+.hora-row{display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:8px;}
+.hora-row:hover{background:rgba(255,255,255,.02);}
+.hr-label{font-family:'Fredoka One',cursive;font-size:.88rem;min-width:68px;color:var(--text);}
+.hr-promo{font-size:.58rem;color:var(--promo);font-weight:700;display:block;}
+.prog-wrap{flex:1;background:var(--card2);border-radius:4px;height:9px;overflow:hidden;}
+.prog{height:100%;border-radius:4px;transition:width .3s;}
+.hr-ocp{font-size:.75rem;color:var(--muted);min-width:70px;text-align:right;}
+.hr-lib{font-size:.75rem;min-width:72px;text-align:right;font-weight:700;}
+.hr-names{padding:.25rem 0 .25rem 76px;font-size:.75rem;color:var(--muted);line-height:1.7;}
+
+/* ── CHARTS ── */
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-bottom:1rem;}
+.chart-title{font-family:'Fredoka One',cursive;font-size:.95rem;color:var(--text);margin-bottom:.9rem;}
+.bar-chart{display:flex;gap:5px;align-items:flex-end;height:110px;}
+.bc-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.bc-bar{width:100%;border-radius:4px 4px 0 0;min-height:2px;}
+.bc-lbl{font-size:.58rem;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.bc-val{font-size:.68rem;font-weight:700;color:var(--text);}
+
+/* ── RECAUDACIÓN ── */
+.recaud-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:.9rem;margin-bottom:1rem;}
+.recaud-card{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;}
+.rc-lbl{font-size:.75rem;color:var(--muted);margin-bottom:3px;}
+.rc-val{font-family:'Fredoka One',cursive;font-size:1.45rem;}
+
+/* ── LOADER ── */
+.page-loader{text-align:center;padding:4rem 1rem;color:var(--muted);}
+.spinner{width:42px;height:42px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── NOTICE ── */
+.notice{background:rgba(244,131,31,.08);border:1px solid rgba(244,131,31,.2);border-radius:10px;padding:.75rem 1rem;font-size:.83rem;color:var(--promo);margin-bottom:1rem;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-icon">🎮</div>
+    <div class="login-title">Admin Panel</div>
+    <div class="login-sub">Juguemos Todos · Vacaciones de Invierno</div>
+    <input class="l-input" type="password" id="pwd" placeholder="Contraseña" onkeydown="if(event.key==='Enter')login()">
+    <button class="l-btn" onclick="login()">Ingresar</button>
+    <div class="l-err" id="l-err">Contraseña incorrecta</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-brand">🎮 Juguemos Todos <span>Admin</span></div>
+    <div class="top-right">
+      <span class="last-update" id="last-update"></span>
+      <button class="btn-refresh" onclick="cargarDatos()">⟳ Actualizar</button>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="cambiarTab('resumen',this)">📊 Resumen</div>
+    <div class="tab" onclick="cambiarTab('agenda',this)">📅 Agenda</div>
+    <div class="tab" onclick="cambiarTab('reservas',this)">📋 Reservas</div>
+    <div class="tab" onclick="cambiarTab('estadisticas',this)">📈 Estadísticas</div>
+  </div>
+
+  <div class="main">
+
+    <!-- STATS GLOBALES -->
+    <div class="stats">
+      <div class="stat"><div class="stat-lbl">Reservas</div><div class="stat-val" id="st-total" style="color:var(--accent)">—</div><div class="stat-sub">confirmadas</div></div>
+      <div class="stat"><div class="stat-lbl">Participantes</div><div class="stat-val" id="st-pax" style="color:var(--cyan)">—</div><div class="stat-sub">total personas</div></div>
+      <div class="stat"><div class="stat-lbl">Recaudado</div><div class="stat-val" id="st-rec" style="color:var(--green)">—</div><div class="stat-sub">ARS confirmado</div></div>
+      <div class="stat"><div class="stat-lbl">Promo 2x1</div><div class="stat-val" id="st-promo" style="color:var(--promo)">—</div><div class="stat-sub">reservas con promo</div></div>
+      <div class="stat"><div class="stat-lbl">Ocupación</div><div class="stat-val" id="st-ocup" style="color:var(--yellow)">—</div><div class="stat-sub">% global</div></div>
+    </div>
+
+    <!-- TAB RESUMEN -->
+    <div id="tc-resumen" class="tc active">
+      <div class="chart-card">
+        <div class="chart-title">Ocupación % por fecha</div>
+        <div class="bar-chart" id="ch-fechas"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Participantes por horario (acumulado)</div>
+        <div class="bar-chart" id="ch-horas"></div>
+      </div>
+    </div>
+
+    <!-- TAB AGENDA -->
+    <div id="tc-agenda" class="tc">
+      <div class="filters">
+        <select class="f-input" id="fil-fecha-ag" onchange="renderAgenda()">
+          <option value="">— Todas las fechas —</option>
+        </select>
+      </div>
+      <div id="agenda-cont"></div>
+    </div>
+
+    <!-- TAB RESERVAS -->
+    <div id="tc-reservas" class="tc">
+      <div class="filters">
+        <input type="text" class="f-input" id="buscar" placeholder="🔍 Buscar nombre, email, código..." oninput="renderTabla()">
+        <select class="f-input" id="fil-fecha" onchange="renderTabla()"><option value="">— Todas las fechas —</option></select>
+        <select class="f-input" id="fil-hora" onchange="renderTabla()"><option value="">— Todos los horarios —</option></select>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Código</th><th>Nombre</th><th>Teléfono</th><th>Email</th>
+            <th>Fecha</th><th>Hora</th><th>Pax</th><th>Total</th><th>Tipo</th><th>Estado</th>
+          </tr></thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:.6rem;font-size:.75rem;color:var(--muted);" id="tbl-count"></div>
+    </div>
+
+    <!-- TAB ESTADÍSTICAS -->
+    <div id="tc-estadisticas" class="tc">
+      <div class="recaud-grid" id="recaud-grid"></div>
+      <div class="chart-card">
+        <div class="chart-title">Participantes por día de la semana (Jue → Mié)</div>
+        <div class="bar-chart" id="ch-dias"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribución horaria total</div>
+        <div class="bar-chart" id="ch-dist"></div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIGURACIÓN — completar antes de publicar
+// ═══════════════════════════════════════════════
+const ADMIN_CFG = {
+  password: 'juguemos2025',   // ← CAMBIÁ esta contraseña
+
+  // URL del CSV publicado de tu Google Sheet.
+  // Instrucciones: Archivo → Compartir → Publicar en la web
+  // → Seleccioná la hoja "Reservas" → formato CSV → Publicar → copiar link
+  sheetCSV: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv',
+
+  precio: 17000,
+  cupos: 40,
+  h0: 12, hF: 19,
+};
+
+const DIAS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+let reservas = [];
+let ocupacion = {};
+
+// ═══════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════
+function login(){
+  if(document.getElementById('pwd').value === ADMIN_CFG.password){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    cargarDatos();
+  } else {
+    document.getElementById('l-err').style.display='block';
+  }
+}
+function logout(){
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('pwd').value='';
+}
+
+// ═══════════════════════════════════════════════
+// CARGAR DATOS
+// ═══════════════════════════════════════════════
+async function cargarDatos(){
+  if(!ADMIN_CFG.sheetCSV || ADMIN_CFG.sheetCSV==='TU_SHEET_CSV_URL'){
+    reservas = demoData();
+  } else {
+    try {
+      // Google Sheets publicado como CSV — cachebuster para forzar refresh
+      const url = ADMIN_CFG.sheetCSV + '&t=' + Date.now();
+      const r = await fetch(url);
+      const txt = await r.text();
+      reservas = parsearCSV(txt);
+    } catch(e){
+      reservas = demoData();
+    }
+  }
+  calcularOcupacion();
+  actualizarStats();
+  poblarFiltros();
+  renderTabla();
+  renderAgenda();
+  renderCharts();
+  renderEstadisticas();
+  document.getElementById('last-update').textContent =
+    'Act: ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function parsearCSV(txt){
+  const rows = txt.trim().split('\n').slice(1); // saltear encabezado
+  return rows.map(row=>{
+    // Separamos respetando posibles comas dentro de comillas
+    const cols = row.split(',').map(c=>c.replace(/^"|"$/g,'').trim());
+    return {
+      codigo:       cols[0]||'',
+      nombre:       cols[1]||'',
+      tel:          cols[2]||'',
+      mail:         cols[3]||'',
+      fecha:        cols[4]||'',
+      hora:         parseInt(cols[5])||0,
+      participantes:parseInt(cols[6])||0,
+      total:        parseInt(cols[7])||0,
+      promo:        cols[8]||'No',
+      estado:       cols[9]||'Pendiente',
+    };
+  }).filter(r=>r.codigo);
+}
+
+function calcularOcupacion(){
+  ocupacion={};
+  reservas.forEach(r=>{
+    if(r.estado==='Pagado'){
+      const k=r.fecha+'-'+r.hora;
+      ocupacion[k]=(ocupacion[k]||0)+r.participantes;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════
+function actualizarStats(){
+  const pag=reservas.filter(r=>r.estado==='Pagado');
+  const totalPax=pag.reduce((s,r)=>s+r.participantes,0);
+  const totalMonto=pag.reduce((s,r)=>s+r.total,0);
+  const conPromo=pag.filter(r=>r.promo==='2x1').length;
+  const fechas=[...new Set(pag.map(r=>r.fecha))];
+  const capTotal=(ADMIN_CFG.hF-ADMIN_CFG.h0+1)*fechas.length*ADMIN_CFG.cupos;
+  const ocup=capTotal?Math.round(totalPax/capTotal*100):0;
+
+  document.getElementById('st-total').textContent=pag.length;
+  document.getElementById('st-pax').textContent=totalPax;
+  document.getElementById('st-rec').textContent='$'+(totalMonto/1000).toFixed(0)+'k';
+  document.getElementById('st-promo').textContent=conPromo;
+  document.getElementById('st-ocup').textContent=ocup+'%';
+}
+
+// ═══════════════════════════════════════════════
+// FILTROS
+// ═══════════════════════════════════════════════
+function poblarFiltros(){
+  const fechas=[...new Set(reservas.map(r=>r.fecha))].sort();
+  const horas=[...new Set(reservas.map(r=>r.hora))].sort((a,b)=>a-b);
+
+  ['fil-fecha','fil-fecha-ag'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel) return;
+    const v=sel.value;
+    sel.innerHTML='<option value="">— Todas las fechas —</option>';
+    fechas.forEach(f=>{ sel.innerHTML+=`<option value="${f}">${fmtFecha(f)}</option>`; });
+    sel.value=v;
+  });
+
+  const selH=document.getElementById('fil-hora');
+  selH.innerHTML='<option value="">— Todos los horarios —</option>';
+  horas.forEach(h=>{ selH.innerHTML+=`<option value="${h}">${h}:00 hs</option>`; });
+}
+
+function fmtFecha(f){
+  if(!f) return '';
+  const d=new Date(f+'T12:00:00');
+  return DIAS[d.getDay()]+' '+d.getDate()+' '+MESES[d.getMonth()];
+}
+
+// ═══════════════════════════════════════════════
+// TABLA RESERVAS
+// ═══════════════════════════════════════════════
+function renderTabla(){
+  const buscar=document.getElementById('buscar').value.toLowerCase();
+  const fF=document.getElementById('fil-fecha').value;
+  const fH=document.getElementById('fil-hora').value;
+
+  const fil=reservas.filter(r=>{
+    const mb=!buscar||[r.nombre,r.mail,r.codigo,r.tel].some(x=>x.toLowerCase().includes(buscar));
+    const mf=!fF||r.fecha===fF;
+    const mh=!fH||String(r.hora)===String(fH);
+    return mb&&mf&&mh;
+  });
+
+  const tbody=document.getElementById('tbl-body');
+  if(fil.length===0){
+    tbody.innerHTML='<tr class="empty-row"><td colspan="10">Sin reservas que coincidan</td></tr>';
+    document.getElementById('tbl-count').textContent='';
+    return;
+  }
+  tbody.innerHTML=fil.map(r=>`
+    <tr>
+      <td style="font-family:'Fredoka One',cursive;color:var(--cyan);font-size:.82rem;">${r.codigo}</td>
+      <td style="font-weight:700;">${r.nombre}</td>
+      <td style="color:var(--muted);">${r.tel}</td>
+      <td style="color:var(--muted);font-size:.8rem;">${r.mail}</td>
+      <td>${fmtFecha(r.fecha)}</td>
+      <td>${r.hora}:00 hs</td>
+      <td style="text-align:center;font-weight:700;">${r.participantes}</td>
+      <td style="font-weight:700;color:var(--green);">$${r.total.toLocaleString('es-AR')}</td>
+      <td><span class="badge ${r.promo==='2x1'?'b-promo':'b-normal'}">${r.promo}</span></td>
+      <td><span class="badge ${r.estado==='Pagado'?'b-paid':'b-pend'}">${r.estado}</span></td>
+    </tr>`).join('');
+
+  const totPax=fil.reduce((s,r)=>s+r.participantes,0);
+  document.getElementById('tbl-count').textContent=
+    fil.length+' reserva'+(fil.length!==1?'s':'')+' · '+totPax+' participantes';
+}
+
+// ═══════════════════════════════════════════════
+// AGENDA
+// ═══════════════════════════════════════════════
+function renderAgenda(){
+  const fF=document.getElementById('fil-fecha-ag').value;
+  const fechas=fF?[fF]:[...new Set(reservas.map(r=>r.fecha))].sort();
+  const cont=document.getElementById('agenda-cont');
+  if(!fechas.length){
+    cont.innerHTML='<div class="page-loader"><div style="font-size:2rem;">📅</div><p>Sin datos cargados</p></div>';
+    return;
+  }
+  cont.innerHTML=fechas.map(fecha=>{
+    const horasCap=ADMIN_CFG.hF-ADMIN_CFG.h0+1;
+    const capDia=horasCap*ADMIN_CFG.cupos;
+    let totOcup=0;
+    for(let h=ADMIN_CFG.h0;h<=ADMIN_CFG.hF;h++) totOcup+=(ocupacion[fecha+'-'+h]||0);
+    const pctDia=Math.round(totOcup/capDia*100);
+
+    const horasHTML=[];
+    for(let h=ADMIN_CFG.h0;h<=ADMIN_CFG.hF;h++){
+      const ocp=ocupacion[fecha+'-'+h]||0;
+      const lib=ADMIN_CFG.cupos-ocp;
+      const pct=Math.round(ocp/ADMIN_CFG.cupos*100);
+      const color=pct>80?'var(--red)':pct>50?'var(--yellow)':'var(--green)';
+      const promo=h===12||h===13;
+      const resHora=reservas.filter(r=>r.fecha===fecha&&r.hora===h&&r.estado==='Pagado');
+      const names=resHora.map(r=>`· ${r.nombre} (${r.participantes} pax)`).join('  ');
+      horasHTML.push(`
+        <div class="hora-row">
+          <span class="hr-label">${h}:00${promo?`<span class="hr-promo">2x1</span>`:''}</span>
+          <div class="prog-wrap"><div class="prog" style="width:${pct}%;background:${color};"></div></div>
+          <span class="hr-ocp">${ocp}/${ADMIN_CFG.cupos}</span>
+          <span class="hr-lib" style="color:${lib>0?'var(--green)':'var(--red)'};">${lib>0?lib+' libres':'COMPLETO'}</span>
+        </div>
+        ${names?`<div class="hr-names">${names}</div>`:''}
+      `);
+    }
+    return `
+      <div class="agenda-fecha">
+        <div class="af-header" onclick="this.parentElement.classList.toggle('open')">
+          <span class="af-title">${fmtFecha(fecha)}</span>
+          <span class="af-meta">${totOcup}/${capDia} pax · ${pctDia}% ocupado ▾</span>
+        </div>
+        <div class="af-body">${horasHTML.join('')}</div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════
+function barChart(id, data, colorFn){
+  const el=document.getElementById(id);
+  if(!el) return;
+  const max=Math.max(...data.map(d=>d.v),1);
+  el.innerHTML=data.map(d=>`
+    <div class="bc-col">
+      <span class="bc-val">${d.v}</span>
+      <div class="bc-bar" style="height:${Math.max(Math.round(d.v/max*100),2)}px;background:${colorFn(d)};"></div>
+      <span class="bc-lbl">${d.l}</span>
+    </div>`).join('');
+}
+
+function renderCharts(){
+  const pag=reservas.filter(r=>r.estado==='Pagado');
+  const fechas=[...new Set(pag.map(r=>r.fecha))].sort();
+  const horasCap=ADMIN_CFG.hF-ADMIN_CFG.h0+1;
+
+  // Por fecha
+  const dataF=fechas.map(f=>{
+    const pax=pag.filter(r=>r.fecha===f).reduce((s,r)=>s+r.participantes,0);
+    const cap=horasCap*ADMIN_CFG.cupos;
+    return{l:fmtFecha(f).slice(0,6), v:Math.round(pax/cap*100)};
+  });
+  barChart('ch-fechas',dataF,d=>d.v>70?'var(--red)':d.v>40?'var(--yellow)':'var(--accent)');
+
+  // Por hora
+  const dataH=[];
+  for(let h=ADMIN_CFG.h0;h<=ADMIN_CFG.hF;h++){
+    const pax=pag.filter(r=>r.hora===h).reduce((s,r)=>s+r.participantes,0);
+    dataH.push({l:h+':00',v:pax,promo:h===12||h===13});
+  }
+  barChart('ch-horas',dataH,d=>d.promo?'var(--promo)':'var(--cyan)');
+}
+
+// ═══════════════════════════════════════════════
+// ESTADÍSTICAS
+// ═══════════════════════════════════════════════
+function renderEstadisticas(){
+  const pag=reservas.filter(r=>r.estado==='Pagado');
+  const total=pag.reduce((s,r)=>s+r.total,0);
+  const totalPax=pag.reduce((s,r)=>s+r.participantes,0);
+  const conPromo=pag.filter(r=>r.promo==='2x1').length;
+  const ticketProm=pag.length?Math.round(total/pag.length):0;
+  const fechas=[...new Set(pag.map(r=>r.fecha))];
+  const capTotal=(ADMIN_CFG.hF-ADMIN_CFG.h0+1)*fechas.length*ADMIN_CFG.cupos;
+  const ocup=capTotal?Math.round(totalPax/capTotal*100):0;
+
+  document.getElementById('recaud-grid').innerHTML=[
+    {l:'Recaudación total',v:'$'+total.toLocaleString('es-AR'),c:'var(--green)'},
+    {l:'Ticket promedio',v:'$'+ticketProm.toLocaleString('es-AR'),c:'var(--accent)'},
+    {l:'Pax por reserva (prom)',v:pag.length?(totalPax/pag.length).toFixed(1):'—',c:'var(--cyan)'},
+    {l:'Ocupación global',v:ocup+'%',c:'var(--yellow)'},
+    {l:'Reservas con promo 2x1',v:conPromo,c:'var(--promo)'},
+    {l:'Total reservas',v:pag.length,c:'var(--accent)'},
+  ].map(x=>`
+    <div class="recaud-card">
+      <div class="rc-lbl">${x.l}</div>
+      <div class="rc-val" style="color:${x.c}">${x.v}</div>
+    </div>`).join('');
+
+  // Por día de semana (todos los días, 17/07 al 2/08)
+  const dsd=[
+    {l:'Jue',v:0},{l:'Vie',v:0},{l:'Sáb',v:0},
+    {l:'Dom',v:0},{l:'Lun',v:0},{l:'Mar',v:0},{l:'Mié',v:0}
+  ];
+  const dwMap={4:0,5:1,6:2,0:3,1:4,2:5,3:6};
+  pag.forEach(r=>{
+    const dw=new Date(r.fecha+'T12:00:00').getDay();
+    if(dwMap[dw]!==undefined) dsd[dwMap[dw]].v+=r.participantes;
+  });
+  barChart('ch-dias',dsd,()=>'var(--accent)');
+
+  // Por hora (distribución)
+  const distH=[];
+  for(let h=ADMIN_CFG.h0;h<=ADMIN_CFG.hF;h++){
+    const p=pag.filter(r=>r.hora===h).reduce((s,r)=>s+r.participantes,0);
+    distH.push({l:h+':00',v:p,promo:h===12||h===13});
+  }
+  barChart('ch-dist',distH,d=>d.promo?'var(--promo)':'var(--cyan)');
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function cambiarTab(name, el){
+  document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tc-'+name).classList.add('active');
+  el.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════
+// DEMO DATA (se usa cuando no hay Sheets configurado)
+// ═══════════════════════════════════════════════
+function demoData(){
+  const nombres=['Ana García','Carlos López','Sofía Martínez','Juan Pérez','Laura Rodríguez','Mateo González','Valentina Cruz','Diego Sánchez'];
+  const fechas=['2025-07-17','2025-07-18','2025-07-19','2025-07-20','2025-07-21','2025-07-24','2025-07-25','2025-07-28','2025-07-31','2025-08-01','2025-08-02'];
+  const demos=[];
+  let idx=0;
+  fechas.forEach(f=>{
+    for(let h=12;h<=19;h++){
+      const n=Math.floor(Math.random()*3);
+      for(let i=0;i<n;i++){
+        const p=Math.floor(Math.random()*4)+1;
+        const promo=h===12||h===13;
+        const cobrado=promo?Math.ceil(p/2):p;
+        const nom=nombres[idx%nombres.length];
+        demos.push({
+          codigo:'JT'+(idx+1000).toString(36).toUpperCase(),
+          nombre:nom, tel:'291411'+String(idx).padStart(4,'0'),
+          mail:nom.toLowerCase().replace(' ','.')+('@mail.com'),
+          fecha:f, hora:h, participantes:p,
+          total:cobrado*ADMIN_CFG.precio,
+          promo:promo?'2x1':'No',
+          estado:Math.random()>.08?'Pagado':'Pendiente'
+        });
+        idx++;
+      }
+    }
+  });
+  return demos;
+}
+</script>
+</body>
+</html>
