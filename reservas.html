@@ -8,7 +8,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#fdf6ec;
+  --bg:#f0fafa;
   --card:#fff;
   --accent:#f4831f;
   --accent2:#2ec4b6;
@@ -95,30 +95,30 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 /* DATE GRID */
 .date-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;}
 .d-btn{
-  background:#fdf6ec;border:1.5px solid var(--border);border-radius:12px;
+  background:#f0fafa;border:1.5px solid var(--border);border-radius:12px;
   padding:9px 4px;cursor:pointer;text-align:center;transition:all .18s;
   font-family:'Quicksand',sans-serif;color:var(--text);
 }
 .d-btn:hover{border-color:var(--accent);background:#fff7ef;}
-.d-btn.sel{border-color:var(--accent);background:#fff3e4;box-shadow:0 0 0 3px rgba(244,131,31,0.15);}
+.d-btn.sel{border-color:#1a9e94;background:#c8f0ed;box-shadow:0 0 0 3px rgba(26,158,148,0.25);}
 .d-btn.dis{opacity:0.35;cursor:not-allowed;pointer-events:none;}
 .d-dia{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
-.d-num{font-family:'Fredoka One',cursive;font-size:1.25rem;color:var(--accent);}
+.d-num{font-family:'Fredoka One',cursive;font-size:1.25rem;color:var(--accent);}.d-btn.sel .d-num{color:#0d6b63;}.d-btn.sel .d-dia,.d-btn.sel .d-mes{color:#0d6b63;}
 .d-mes{font-size:0.6rem;color:var(--muted);}
 
 /* HOUR GRID */
 .hour-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px;}
 .h-btn{
-  background:#fdf6ec;border:1.5px solid var(--border);border-radius:12px;
+  background:#f0fafa;border:1.5px solid var(--border);border-radius:12px;
   padding:10px 6px;cursor:pointer;text-align:center;transition:all .18s;
   font-family:'Quicksand',sans-serif;color:var(--text);position:relative;
 }
 .h-btn:hover:not(.lleno){border-color:var(--accent2);background:#f0fafa;}
-.h-btn.sel{border-color:var(--accent2);background:#e8f9f8;box-shadow:0 0 0 3px rgba(46,196,182,0.15);}
+.h-btn.sel{border-color:#1a9e94;background:#c8f0ed;box-shadow:0 0 0 3px rgba(26,158,148,0.25);}
 .h-btn.lleno{opacity:.4;cursor:not-allowed;}
 .h-btn.promo{border-color:rgba(230,57,70,0.35);}
 .h-btn.promo:hover:not(.lleno){border-color:var(--promo);background:#fff5f5;}
-.h-btn.promo.sel{border-color:var(--promo);background:#fff0f0;box-shadow:0 0 0 3px rgba(230,57,70,0.12);}
+.h-btn.promo.sel{border-color:#1a9e94;background:#c8f0ed;box-shadow:0 0 0 3px rgba(26,158,148,0.25);}
 .h-time{font-family:'Fredoka One',cursive;font-size:1rem;color:var(--text);}
 .h-cupos{font-size:0.65rem;color:var(--muted);margin-top:2px;}
 .h-btn.lleno .h-time{color:var(--muted);}
@@ -135,14 +135,14 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   background:#fff5f5;border:1px solid rgba(230,57,70,0.2);
   border-radius:10px;padding:9px 12px;
   font-size:0.82rem;color:#c0392b;margin-bottom:1rem;
-  display:flex;gap:8px;align-items:flex-start;
+  display:block;line-height:1.6;
 }
 
 /* FORM */
 .fg{margin-bottom:.9rem;}
 .fg label{display:block;font-size:0.78rem;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
 .fg input{
-  width:100%;background:#fdf6ec;border:1.5px solid var(--border);
+  width:100%;background:#f0fafa;border:1.5px solid var(--border);
   border-radius:10px;padding:11px 13px;color:var(--text);
   font-family:'Quicksand',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s;
 }
@@ -153,7 +153,7 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .counter{display:flex;align-items:center;gap:12px;}
 .cnt-btn{
   width:34px;height:34px;border-radius:50%;
-  border:1.5px solid var(--border);background:#fdf6ec;
+  border:1.5px solid var(--border);background:#f0fafa;
   color:var(--text);font-size:1.2rem;cursor:pointer;
   display:flex;align-items:center;justify-content:center;transition:all .18s;
 }
@@ -162,7 +162,7 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .cnt-info{font-size:0.8rem;color:var(--muted);}
 
 /* RESUMEN */
-.resumen{background:#fdf6ec;border:1.5px solid var(--border);border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem;}
+.resumen{background:#f0fafa;border:1.5px solid var(--border);border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem;}
 .res-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.9rem;}
 .res-row.total{border-top:1.5px solid var(--border);margin-top:6px;padding-top:9px;font-size:1rem;}
 .res-k{color:var(--muted);}
@@ -212,6 +212,12 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .nota-conf strong{color:var(--accent2);}
 
 /* MODAL MP */
+#modal-ya-reserva{
+  display:none;position:fixed;inset:0;z-index:999;
+  background:rgba(0,0,0,0.55);
+  align-items:center;justify-content:center;padding:1rem;
+}
+#modal-ya-reserva.show{display:flex;}
 #modal-mp{
   display:none;position:fixed;inset:0;z-index:999;
   background:rgba(0,0,0,0.55);
@@ -281,6 +287,11 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   <div class="card" id="s2" style="display:none">
     <div class="card-head"><span class="ico">🕐</span> Elegí el horario</div>
     <div class="info-box">🎁 Los turnos de <strong>12:00 y 13:00 hs</strong> tienen Promo 2x1 — pagás por la mitad de los participantes.</div>
+    <div class="info-box" style="background:#f0fafa;border:1px solid rgba(46,196,182,0.25);color:#1a7a72;margin-top:8px;display:block;">
+      📌 Solo podés reservar <strong>un turno horario por vez</strong>.<br>
+      Si deseás un segundo horario, debés solicitarlo <strong>de manera presencial en el evento</strong>,<br>
+      con al menos <strong>10 minutos de anticipación</strong> al turno que hayas reservado y abonado.
+    </div>
     <div class="hour-grid" id="hour-grid"></div>
   </div>
 
@@ -340,6 +351,23 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 </div><!-- /wrap -->
 
 <!-- MODAL MP -->
+<!-- MODAL: YA TIENE RESERVA -->
+<div id="modal-ya-reserva">
+  <div class="modal-card" style="text-align:center;">
+    <div style="font-size:2.5rem;margin-bottom:.75rem;">⚠️</div>
+    <div class="modal-title" style="color:var(--accent3);">Ya tenés una reserva activa</div>
+    <div class="modal-desc" style="text-align:left;">
+      <p style="margin-bottom:.75rem;">Solo podés reservar <strong>un turno por vez</strong> a través de esta plataforma.</p>
+      <div style="background:#fff5f5;border:1px solid rgba(230,57,70,0.2);border-radius:10px;padding:12px 14px;font-size:.88rem;color:#c0392b;line-height:1.6;">
+        📌 Si necesitás un <strong>segundo turno</strong>, podés solicitarlo <strong>de manera presencial en el evento</strong>, con al menos <strong>10 minutos de anticipación</strong> al horario deseado.<br><br>
+        Quedará sujeto a <strong>disponibilidad de ocupación</strong> en ese momento.
+      </div>
+      <div id="modal-reserva-existente" style="margin-top:1rem;background:#f0fafa;border:1px solid rgba(46,196,182,0.3);border-radius:10px;padding:12px 14px;font-size:.88rem;"></div>
+    </div>
+    <button class="modal-link" style="margin-top:1rem;text-decoration:none;display:block;" onclick="cerrarModalYaReserva()">Entendido</button>
+  </div>
+</div>
+
 <div id="modal-mp">
   <div class="modal-card">
     <div class="modal-title">💳 Ir a pagar</div>
@@ -486,9 +514,28 @@ function irPaso4(){
   if(!nombre||!tel||!mail){alert('Completá todos los campos obligatorios.');return;}
   if(!mail.includes('@')){alert('Ingresá un email válido.');return;}
   if(!selFecha||selHora===null){alert('Elegí fecha y horario primero.');return;}
+
+  // Verificar si ya tiene una reserva confirmada
+  const reservaExistente = localStorage.getItem('jt_reserva_confirmada');
+  if(reservaExistente){
+    const r = JSON.parse(reservaExistente);
+    document.getElementById('modal-reserva-existente').innerHTML=
+      `<strong>Tu reserva actual:</strong><br>
+       📅 ${r.fStr || r.fecha}<br>
+       🕐 ${r.hora}:00 hs<br>
+       👥 ${r.participantes} participante${r.participantes>1?'s':''}<br>
+       🎟️ Código: <strong>${r.codigo}</strong>`;
+    document.getElementById('modal-ya-reserva').classList.add('show');
+    return;
+  }
+
   renderResumen(nombre,tel,mail);
   show('s4'); stepDone(3,4);
   scroll('s4');
+}
+
+function cerrarModalYaReserva(){
+  document.getElementById('modal-ya-reserva').classList.remove('show');
 }
 
 function renderResumen(nombre,tel,mail){
