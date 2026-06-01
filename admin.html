@@ -255,6 +255,8 @@ const ADMIN_CFG = {
   precio: 17000,
   cupos: 40,
   h0: 12, hF: 19,
+  fechaInicio: '2026-07-17',
+  fechaFin:    '2026-08-02',
 };
 
 const DIAS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -310,28 +312,46 @@ async function cargarDatos(){
 }
 
 function parsearCSV(txt){
-  const rows = txt.trim().split('\n').slice(1);
-  return rows.map(row=>{
+  const lines = txt.trim().split('\n');
+  if(lines.length < 2) return [];
+
+  // Leer encabezado y mapear columnas dinámicamente
+  const headers = lines[0].split(',').map(c=>c.replace(/^"|"$/g,'').trim().toLowerCase());
+  const idx = name => { const i=headers.findIndex(h=>h.includes(name)); return i>=0?i:-1; };
+
+  const iTimestamp = idx('marca')>=0?idx('marca'):idx('timestamp')>=0?idx('timestamp'):0;
+  const iCodigo    = idx('digo')>=0?idx('digo'):1;
+  const iNombre    = idx('nombre')>=0?idx('nombre'):2;
+  const iTel       = idx('tel')>=0?idx('tel'):3;
+  const iMail      = idx('email')>=0?idx('email'):idx('mail')>=0?idx('mail'):4;
+  const iFecha     = idx('fecha')>=0?idx('fecha'):5;
+  const iHora      = idx('hora')>=0?idx('hora'):6;
+  const iPax       = idx('parti')>=0?idx('parti'):7;
+  const iTotal     = idx('total')>=0?idx('total'):8;
+  const iPromo     = idx('promo')>=0?idx('promo'):9;
+  const iEstado    = idx('estado')>=0?idx('estado'):10;
+  const iPayment   = idx('payment')>=0?idx('payment'):11;
+
+  return lines.slice(1).map(row=>{
     const cols = row.split(',').map(c=>c.replace(/^"|"$/g,'').trim());
-    // Apps Script: 0:Timestamp,1:Código,2:Nombre,3:Tel,4:Email,
-    // 5:Fecha,6:Hora,7:Participantes,8:Total,9:Promo,10:Estado,11:PaymentID
-    const horaRaw = cols[6]||'0';
-    const horaNum = parseInt(horaRaw.replace(':00',''))||0;
+    if(cols.length < 3) return null;
+    const horaRaw = cols[iHora]||'0';
+    const horaNum = parseInt(horaRaw.replace(':00','').replace('hs','').trim())||0;
     return {
-      timestamp:    cols[0]||'',
-      codigo:       cols[1]||'',
-      nombre:       cols[2]||'',
-      tel:          cols[3]||'',
-      mail:         cols[4]||'',
-      fecha:        cols[5]||'',
+      timestamp:    cols[iTimestamp]||'',
+      codigo:       cols[iCodigo]||'',
+      nombre:       cols[iNombre]||'',
+      tel:          cols[iTel]||'',
+      mail:         cols[iMail]||'',
+      fecha:        cols[iFecha]||'',
       hora:         horaNum,
-      participantes:parseInt(cols[7])||0,
-      total:        parseInt(cols[8])||0,
-      promo:        cols[9]||'No',
-      estado:       cols[10]||'Pagado',
-      paymentId:    cols[11]||'',
+      participantes:parseInt(cols[iPax])||0,
+      total:        parseInt(cols[iTotal])||0,
+      promo:        cols[iPromo]||'No',
+      estado:       cols[iEstado]||'Pagado',
+      paymentId:    cols[iPayment]||'',
     };
-  }).filter(r=>r.codigo);
+  }).filter(r=>r && r.codigo);
 }
 
 function calcularOcupacion(){
@@ -368,8 +388,21 @@ function actualizarStats(){
 // FILTROS
 // ═══════════════════════════════════════════════
 function poblarFiltros(){
-  const fechas=[...new Set(reservas.map(r=>r.fecha))].filter(Boolean).sort();
-  const horas=[...new Set(reservas.map(r=>r.hora))].sort((a,b)=>a-b);
+  // Generar fechas completas del rango del evento
+  let todasFechas = [];
+  if(ADMIN_CFG.fechaInicio && ADMIN_CFG.fechaFin){
+    let cur = new Date(ADMIN_CFG.fechaInicio+'T12:00:00');
+    const fin = new Date(ADMIN_CFG.fechaFin+'T12:00:00');
+    while(cur<=fin){
+      todasFechas.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate()+1);
+    }
+  }
+  const fechasConReservas = [...new Set(reservas.map(r=>r.fecha))].filter(Boolean);
+  const fechas = [...new Set([...todasFechas, ...fechasConReservas])].sort();
+  // Horarios fijos del evento
+  const horas = [];
+  for(let h=ADMIN_CFG.h0; h<=ADMIN_CFG.hF; h++) horas.push(h);
 
   ['fil-fecha','fil-fecha-ag'].forEach(id=>{
     const sel=document.getElementById(id);
@@ -387,9 +420,10 @@ function poblarFiltros(){
 
 function fmtFecha(f){
   if(!f) return '';
-  // Si ya viene formateado como "Vie 17 Jul 2026"
-  if(isNaN(Date.parse(f)) || f.includes(' ')) return f;
-  const d=new Date(f+'T12:00:00');
+  // Si ya viene formateado como "Vie 17 Jul 2026" devolver tal cual
+  if(f.includes(' ') && isNaN(Date.parse(f))) return f;
+  // Intentar parsear como fecha
+  const d = new Date(f.includes('T') ? f : f+'T12:00:00');
   if(isNaN(d.getTime())) return f;
   return DIAS[d.getDay()]+' '+d.getDate()+' '+MESES[d.getMonth()]+' '+d.getFullYear();
 }
@@ -446,7 +480,20 @@ function renderTabla(){
 // ═══════════════════════════════════════════════
 function renderAgenda(){
   const fF=document.getElementById('fil-fecha-ag').value;
-  const fechas=fF?[fF]:[...new Set(reservas.map(r=>r.fecha))].sort();
+  // Generar todas las fechas del rango del evento
+  let todasFechas = [];
+  if(ADMIN_CFG.fechaInicio && ADMIN_CFG.fechaFin){
+    let cur = new Date(ADMIN_CFG.fechaInicio+'T12:00:00');
+    const fin = new Date(ADMIN_CFG.fechaFin+'T12:00:00');
+    while(cur<=fin){
+      todasFechas.push(cur.toISOString().split('T')[0]);
+      cur.setDate(cur.getDate()+1);
+    }
+  }
+  // Combinar fechas del rango con fechas que tienen reservas
+  const fechasConReservas = [...new Set(reservas.map(r=>r.fecha))].filter(Boolean);
+  const todasCombinadas = [...new Set([...todasFechas, ...fechasConReservas])].sort();
+  const fechas = fF ? [fF] : todasCombinadas;
   const cont=document.getElementById('agenda-cont');
   if(!fechas.length){
     cont.innerHTML='<div class="page-loader"><div style="font-size:2rem;">📅</div><p>Sin datos cargados</p></div>';
