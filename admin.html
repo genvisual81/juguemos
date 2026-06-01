@@ -424,12 +424,23 @@ function poblarFiltros(){
 
 function fmtFecha(f){
   if(!f) return '';
-  // Si ya viene formateado como "Vie 17 Jul 2026" devolver tal cual
-  if(f.includes(' ') && isNaN(Date.parse(f))) return f;
-  // Intentar parsear como fecha
-  const d = new Date(f.includes('T') ? f : f+'T12:00:00');
-  if(isNaN(d.getTime())) return f;
-  return DIAS[d.getDay()]+' '+d.getDate()+' '+MESES[d.getMonth()]+' '+d.getFullYear();
+  let d;
+  // Si viene como "Vie 17 Jul 2026" o similar, parsear
+  if(f.match(/\d{4}-\d{2}-\d{2}/)){
+    d = new Date(f+'T12:00:00');
+  } else if(f.match(/\d{1,2}\/\d{1,2}\/\d{4}/)){
+    // formato dd/mm/yyyy
+    const parts = f.split('/');
+    d = new Date(parts[2]+'-'+parts[1].padStart(2,'0')+'-'+parts[0].padStart(2,'0')+'T12:00:00');
+  } else {
+    d = new Date(f.includes('T') ? f : f+'T12:00:00');
+  }
+  if(!d || isNaN(d.getTime())) return f;
+  const dia  = DIAS[d.getDay()];
+  const dd   = String(d.getDate()).padStart(2,'0');
+  const mm   = String(d.getMonth()+1).padStart(2,'0');
+  const yy   = String(d.getFullYear()).slice(-2);
+  return dia+' '+dd+'/'+mm+'/'+yy;
 }
 
 // ═══════════════════════════════════════════════
@@ -518,7 +529,7 @@ function renderAgenda(){
       const color=pct>80?'var(--red)':pct>50?'var(--yellow)':'var(--green)';
       const promo=h===12||h===13;
       const resHora=reservas.filter(r=>r.fecha===fecha&&r.hora===h&&r.estado==='Pagado');
-      const names=resHora.map(r=>`· ${r.nombre} (${r.participantes} pax)`).join('  ');
+      const names=resHora.map(r=>`· ${r.nombre} (${r.participantes} cupos)`).join('  ');
       horasHTML.push(`
         <div class="hora-row">
           <span class="hr-label">${h}:00${promo?`<span class="hr-promo">2x1</span>`:''}</span>
@@ -533,7 +544,7 @@ function renderAgenda(){
       <div class="agenda-fecha">
         <div class="af-header" onclick="this.parentElement.classList.toggle('open')">
           <span class="af-title">${fmtFecha(fecha)}</span>
-          <span class="af-meta">${totOcup}/${capDia} pax · ${pctDia}% ocupado ▾</span>
+          <span class="af-meta">${totOcup}/${capDia} cupos · ${pctDia}% ocupado ▾</span>
         </div>
         <div class="af-body">${horasHTML.join('')}</div>
       </div>`;
