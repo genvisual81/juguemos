@@ -128,6 +128,46 @@ tr:hover td{background:rgba(244,131,31,0.03);}
 .rc-lbl{font-size:.75rem;color:var(--muted);margin-bottom:3px;}
 .rc-val{font-family:'Fredoka One',cursive;font-size:1.45rem;}
 
+/* ── CAJA ── */
+.caja-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+@media(max-width:640px){.caja-grid{grid-template-columns:1fr;}}
+.caja-box{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.1rem;}
+.caja-box-title{font-family:'Fredoka One',cursive;font-size:1rem;margin-bottom:.9rem;display:flex;align-items:center;gap:7px;}
+.caja-total{font-family:'Fredoka One',cursive;font-size:2rem;margin:0.5rem 0;}
+.caja-sub{font-size:.78rem;color:var(--muted);}
+.caja-detalle{margin-top:.75rem;border-top:1px solid var(--border);padding-top:.75rem;}
+.caja-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.85rem;border-bottom:1px solid var(--border);}
+.caja-row:last-child{border:none;}
+.caja-row.subtotal{font-weight:700;border-top:1.5px solid var(--border);margin-top:4px;padding-top:8px;}
+.caja-key{color:var(--muted);}
+.caja-val{font-weight:700;}
+.caja-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.7rem;font-weight:700;}
+.cb-efectivo{background:rgba(52,211,153,.12);color:var(--green);}
+.cb-mp{background:rgba(0,158,227,.12);color:#009ee3;}
+.cb-transf{background:rgba(99,102,241,.12);color:#6366f1;}
+.cb-online{background:rgba(244,131,31,.12);color:var(--accent);}
+
+/* Form manual */
+.manual-form{display:grid;gap:.75rem;}
+.mf-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;}
+@media(max-width:480px){.mf-row{grid-template-columns:1fr;}}
+.mf-input{width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-family:'Quicksand',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;}
+.mf-input:focus{border-color:var(--accent);}
+.mf-label{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+.btn-registrar{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px;font-family:'Fredoka One',cursive;font-size:1rem;cursor:pointer;transition:opacity .2s;}
+.btn-registrar:hover{opacity:.88;}
+.btn-cerrar-caja{background:var(--card2);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:9px 18px;font-family:'Fredoka One',cursive;font-size:.9rem;cursor:pointer;transition:background .2s;}
+.btn-cerrar-caja:hover{background:var(--cyan);color:#fff;}
+.resumen-caja{background:var(--card2);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-top:1rem;}
+.rc-title{font-family:'Fredoka One',cursive;font-size:1rem;margin-bottom:.75rem;color:var(--text);}
+.rc-total-row{display:flex;justify-content:space-between;padding:6px 0;font-size:.88rem;border-bottom:1px solid var(--border);}
+.rc-total-row:last-child{border:none;}
+.rc-total-row.grand{font-size:1.05rem;font-weight:800;border-top:2px solid var(--border);margin-top:4px;padding-top:10px;}
+
+/* Filtro de fechas caja */
+.caja-filtros{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;}
+.caja-filtros label{font-size:.78rem;color:var(--muted);font-weight:700;}
+
 /* ── LOADER ── */
 .page-loader{text-align:center;padding:4rem 1rem;color:var(--muted);}
 .spinner{width:42px;height:42px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem;}
@@ -169,6 +209,7 @@ tr:hover td{background:rgba(244,131,31,0.03);}
     <div class="tab" onclick="cambiarTab('agenda',this)">📅 Agenda</div>
     <div class="tab" onclick="cambiarTab('reservas',this)">📋 Reservas</div>
     <div class="tab" onclick="cambiarTab('estadisticas',this)">📈 Estadísticas</div>
+    <div class="tab" onclick="cambiarTab('caja',this)">💰 Caja</div>
   </div>
 
   <div class="main">
@@ -235,6 +276,115 @@ tr:hover td{background:rgba(244,131,31,0.03);}
         <div class="bar-chart" id="ch-dist"></div>
       </div>
     </div>
+
+    <!-- TAB CAJA -->
+    <div id="tc-caja" class="tc">
+
+      <!-- Filtro de fechas -->
+      <div class="caja-filtros">
+        <label>Desde:</label>
+        <input type="date" class="f-input" id="caja-desde" onchange="renderCaja()">
+        <label>Hasta:</label>
+        <input type="date" class="f-input" id="caja-hasta" onchange="renderCaja()">
+        <button class="btn-cerrar-caja" onclick="setCajaHoy()">📅 Hoy</button>
+        <button class="btn-cerrar-caja" onclick="setCajaEvento()">🗓 Todo el evento</button>
+      </div>
+
+      <div class="caja-grid">
+        <!-- CAJA ONLINE -->
+        <div class="caja-box">
+          <div class="caja-box-title">🌐 Caja Online <small style="font-size:.72rem;color:var(--muted);font-family:Quicksand,sans-serif;font-weight:600;">(Mercado Pago)</small></div>
+          <div class="caja-total" id="caja-online-total" style="color:var(--accent)">$0</div>
+          <div class="caja-sub" id="caja-online-sub">0 reservas · 0 cupos</div>
+          <div class="caja-detalle" id="caja-online-detalle"></div>
+        </div>
+
+        <!-- CAJA MANUAL -->
+        <div class="caja-box">
+          <div class="caja-box-title">🧾 Caja Manual <small style="font-size:.72rem;color:var(--muted);font-family:Quicksand,sans-serif;font-weight:600;">(presencial)</small></div>
+          <div class="caja-total" id="caja-manual-total" style="color:var(--green)">$0</div>
+          <div class="caja-sub" id="caja-manual-sub">0 cobros registrados</div>
+          <div class="caja-detalle" id="caja-manual-detalle"></div>
+        </div>
+      </div>
+
+      <!-- RESUMEN TOTAL -->
+      <div class="resumen-caja" id="resumen-caja-total"></div>
+
+      <!-- FORMULARIO CAJA MANUAL -->
+      <div class="caja-box" style="margin-top:1rem;">
+        <div class="caja-box-title">➕ Registrar cobro presencial</div>
+        <div class="manual-form">
+          <div class="mf-row">
+            <div>
+              <div class="mf-label">Nombre</div>
+              <input class="mf-input" type="text" id="mf-nombre" placeholder="Nombre del cliente">
+            </div>
+            <div>
+              <div class="mf-label">Teléfono</div>
+              <input class="mf-input" type="tel" id="mf-tel" placeholder="Ej: 2914123456">
+            </div>
+          </div>
+          <div class="mf-row">
+            <div>
+              <div class="mf-label">Fecha del turno</div>
+              <input class="mf-input" type="date" id="mf-fecha">
+            </div>
+            <div>
+              <div class="mf-label">Horario</div>
+              <select class="mf-input" id="mf-hora">
+                <option value="">-- Horario --</option>
+                <option value="12">12:00 hs</option>
+                <option value="13">13:00 hs</option>
+                <option value="14">14:00 hs</option>
+                <option value="15">15:00 hs</option>
+                <option value="16">16:00 hs</option>
+                <option value="17">17:00 hs</option>
+                <option value="18">18:00 hs</option>
+                <option value="19">19:00 hs</option>
+              </select>
+            </div>
+          </div>
+          <div class="mf-row">
+            <div>
+              <div class="mf-label">Cupos</div>
+              <input class="mf-input" type="number" id="mf-cupos" placeholder="Cantidad" min="1" max="40">
+            </div>
+            <div>
+              <div class="mf-label">Medio de pago</div>
+              <select class="mf-input" id="mf-medio">
+                <option value="Efectivo">💵 Efectivo</option>
+                <option value="MP Presencial">📱 MP Presencial</option>
+                <option value="Transferencia">🏦 Transferencia</option>
+              </select>
+            </div>
+          </div>
+          <div class="mf-row">
+            <div>
+              <div class="mf-label">Monto cobrado</div>
+              <input class="mf-input" type="number" id="mf-monto" placeholder="Ej: 17000">
+            </div>
+            <div>
+              <div class="mf-label">Tipo</div>
+              <select class="mf-input" id="mf-tipo">
+                <option value="Normal">Normal</option>
+                <option value="2x1">Promo 2x1</option>
+                <option value="3x2">Promo 3x2</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div class="mf-label">Observación (opcional)</div>
+            <input class="mf-input" type="text" id="mf-obs" placeholder="Ej: segundo turno, cortesía, etc.">
+          </div>
+          <button class="btn-registrar" onclick="registrarCobroManual()">✅ Registrar cobro</button>
+        </div>
+
+        <!-- Lista de cobros manuales del día -->
+        <div style="margin-top:1rem;" id="lista-manuales"></div>
+      </div>
+
+    </div><!-- /tc-caja -->
 
   </div><!-- /main -->
 </div><!-- /app -->
@@ -661,6 +811,220 @@ function cambiarTab(name, el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tc-'+name).classList.add('active');
   el.classList.add('active');
+  if(name==='caja') renderCaja();
+}
+
+// ═══════════════════════════════════════════════
+// MÓDULO CAJA
+// ═══════════════════════════════════════════════
+let cobrosManuales = JSON.parse(localStorage.getItem('jt_cobros_manuales')||'[]');
+
+function setCajaHoy(){
+  const hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('caja-desde').value = hoy;
+  document.getElementById('caja-hasta').value = hoy;
+  renderCaja();
+}
+
+function setCajaEvento(){
+  document.getElementById('caja-desde').value = ADMIN_CFG.fechaInicio||'2026-07-17';
+  document.getElementById('caja-hasta').value = ADMIN_CFG.fechaFin||'2026-08-02';
+  renderCaja();
+}
+
+function fmtMoney(n){ return '$'+Math.round(n).toLocaleString('es-AR'); }
+function fmtFechaCaja(f){
+  if(!f) return '';
+  const d = new Date(f+'T12:00:00');
+  if(isNaN(d.getTime())) return f;
+  const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return dias[d.getDay()]+' '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+}
+
+function getFiltroCaja(){
+  const desde = document.getElementById('caja-desde').value;
+  const hasta = document.getElementById('caja-hasta').value;
+  return {desde, hasta};
+}
+
+function enRango(fecha, desde, hasta){
+  if(!fecha) return false;
+  // Normalizar fecha a YYYY-MM-DD
+  let f = fecha;
+  if(f.includes(' ')) f = f.split(' ')[0]; // quitar hora
+  if(f.includes('/')) {
+    const p = f.split('/');
+    if(p[0].length===4) f = p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');
+    else f = p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
+  }
+  if(!desde && !hasta) return true;
+  if(desde && f < desde) return false;
+  if(hasta && f > hasta) return false;
+  return true;
+}
+
+function renderCaja(){
+  const {desde, hasta} = getFiltroCaja();
+
+  // ── CAJA ONLINE ─────────────────────────────────────────────────
+  const pagadas = reservas.filter(r=>
+    (r.estado==='Pagado'||r.estado==='pagado') &&
+    enRango(r.fecha, desde, hasta)
+  );
+
+  const totalOnline = pagadas.reduce((s,r)=>s+r.total,0);
+  const cuposOnline = pagadas.reduce((s,r)=>s+r.participantes,0);
+
+  document.getElementById('caja-online-total').textContent = fmtMoney(totalOnline);
+  document.getElementById('caja-online-sub').textContent =
+    pagadas.length+' reserva'+(pagadas.length!==1?'s':'')+' · '+cuposOnline+' cupos';
+
+  // Desglose por horario
+  const porHora = {};
+  pagadas.forEach(r=>{
+    const k = r.fecha+'|'+r.hora;
+    if(!porHora[k]) porHora[k]={fecha:r.fecha,hora:r.hora,total:0,reservas:[],cupos:0};
+    porHora[k].total += r.total;
+    porHora[k].cupos += r.participantes;
+    porHora[k].reservas.push(r);
+  });
+
+  const detalleOnlineHTML = Object.values(porHora)
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora-b.hora)
+    .map(h=>`
+      <div class="caja-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+        <div style="display:flex;justify-content:space-between;width:100%;">
+          <span class="caja-key">${fmtFechaCaja(h.fecha)} · ${h.hora}:00 hs</span>
+          <span class="caja-val" style="color:var(--accent)">${fmtMoney(h.total)}</span>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);">
+          ${h.reservas.map(r=>
+            `· ${r.nombre} — ${r.participantes} cupos
+             <span class="caja-badge cb-online">${r.promo==='2x1'?'2x1':'Normal'}</span>`
+          ).join('<br>')}
+        </div>
+      </div>`).join('');
+
+  document.getElementById('caja-online-detalle').innerHTML =
+    detalleOnlineHTML || '<p style="color:var(--muted);font-size:.82rem;">Sin reservas en el período</p>';
+
+  // ── CAJA MANUAL ─────────────────────────────────────────────────
+  const manualesFiltrados = cobrosManuales.filter(c=>enRango(c.fecha, desde, hasta));
+  const totalManual = manualesFiltrados.reduce((s,c)=>s+(parseFloat(c.monto)||0),0);
+  const totalEfectivo = manualesFiltrados.filter(c=>c.medio==='Efectivo').reduce((s,c)=>s+(parseFloat(c.monto)||0),0);
+  const totalMP = manualesFiltrados.filter(c=>c.medio==='MP Presencial').reduce((s,c)=>s+(parseFloat(c.monto)||0),0);
+  const totalTransf = manualesFiltrados.filter(c=>c.medio==='Transferencia').reduce((s,c)=>s+(parseFloat(c.monto)||0),0);
+
+  document.getElementById('caja-manual-total').textContent = fmtMoney(totalManual);
+  document.getElementById('caja-manual-sub').textContent =
+    manualesFiltrados.length+' cobro'+(manualesFiltrados.length!==1?'s':'')+' registrado'+(manualesFiltrados.length!==1?'s':'');
+
+  const mediosBadge = {
+    'Efectivo':'cb-efectivo','MP Presencial':'cb-mp','Transferencia':'cb-transf'
+  };
+  const detalleManualHTML = manualesFiltrados.length ? `
+    ${totalEfectivo>0?`<div class="caja-row"><span class="caja-key">💵 Efectivo</span><span class="caja-val">${fmtMoney(totalEfectivo)}</span></div>`:''}
+    ${totalMP>0?`<div class="caja-row"><span class="caja-key">📱 MP Presencial</span><span class="caja-val">${fmtMoney(totalMP)}</span></div>`:''}
+    ${totalTransf>0?`<div class="caja-row"><span class="caja-key">🏦 Transferencia</span><span class="caja-val">${fmtMoney(totalTransf)}</span></div>`:''}
+    <div class="caja-row subtotal"><span class="caja-key">Subtotal manual</span><span class="caja-val">${fmtMoney(totalManual)}</span></div>
+  ` : '<p style="color:var(--muted);font-size:.82rem;">Sin cobros registrados en el período</p>';
+
+  document.getElementById('caja-manual-detalle').innerHTML = detalleManualHTML;
+
+  // ── RESUMEN TOTAL ────────────────────────────────────────────────
+  const grandTotal = totalOnline + totalManual;
+  document.getElementById('resumen-caja-total').innerHTML = `
+    <div class="rc-title">💰 Resumen de Caja${desde===hasta&&desde?' — '+fmtFechaCaja(desde):desde?' — '+fmtFechaCaja(desde)+' al '+fmtFechaCaja(hasta):''}</div>
+    <div class="rc-total-row"><span>🌐 Online (MP)</span><span style="color:var(--accent);font-weight:700;">${fmtMoney(totalOnline)}</span></div>
+    <div class="rc-total-row"><span>💵 Efectivo</span><span style="color:var(--green);font-weight:700;">${fmtMoney(totalEfectivo)}</span></div>
+    <div class="rc-total-row"><span>📱 MP Presencial</span><span style="color:#009ee3;font-weight:700;">${fmtMoney(totalMP)}</span></div>
+    <div class="rc-total-row"><span>🏦 Transferencia</span><span style="color:#6366f1;font-weight:700;">${fmtMoney(totalTransf)}</span></div>
+    <div class="rc-total-row grand"><span>TOTAL GENERAL</span><span style="color:var(--cyan);">${fmtMoney(grandTotal)}</span></div>
+    <div style="margin-top:.75rem;font-size:.78rem;color:var(--muted);">
+      ${pagadas.length} reservas online · ${cuposOnline} cupos web · ${manualesFiltrados.length} cobros presenciales
+    </div>
+  `;
+
+  // ── LISTA COBROS MANUALES ────────────────────────────────────────
+  renderListaManuales();
+}
+
+function registrarCobroManual(){
+  const nombre = document.getElementById('mf-nombre').value.trim();
+  const tel    = document.getElementById('mf-tel').value.trim();
+  const fecha  = document.getElementById('mf-fecha').value;
+  const hora   = document.getElementById('mf-hora').value;
+  const cupos  = document.getElementById('mf-cupos').value;
+  const medio  = document.getElementById('mf-medio').value;
+  const monto  = document.getElementById('mf-monto').value;
+  const tipo   = document.getElementById('mf-tipo').value;
+  const obs    = document.getElementById('mf-obs').value.trim();
+
+  if(!nombre||!fecha||!hora||!cupos||!monto){
+    alert('Completá los campos obligatorios: Nombre, Fecha, Horario, Cupos y Monto.');
+    return;
+  }
+
+  const cobro = {
+    id: Date.now(),
+    nombre, tel, fecha, hora: parseInt(hora),
+    cupos: parseInt(cupos), medio, monto: parseFloat(monto),
+    tipo, obs,
+    timestamp: new Date().toLocaleString('es-AR')
+  };
+
+  cobrosManuales.push(cobro);
+  localStorage.setItem('jt_cobros_manuales', JSON.stringify(cobrosManuales));
+
+  // Limpiar form
+  ['mf-nombre','mf-tel','mf-cupos','mf-monto','mf-obs'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+
+  renderCaja();
+}
+
+function eliminarCobroManual(id){
+  if(!confirm('¿Eliminar este cobro?')) return;
+  cobrosManuales = cobrosManuales.filter(c=>c.id!==id);
+  localStorage.setItem('jt_cobros_manuales', JSON.stringify(cobrosManuales));
+  renderCaja();
+}
+
+function renderListaManuales(){
+  const {desde, hasta} = getFiltroCaja();
+  const filtrados = cobrosManuales.filter(c=>enRango(c.fecha, desde, hasta))
+    .sort((a,b)=>b.id-a.id);
+
+  const mediosBadge = {
+    'Efectivo':'cb-efectivo','MP Presencial':'cb-mp','Transferencia':'cb-transf'
+  };
+
+  const html = filtrados.length ? `
+    <div style="font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.5rem;">
+      Cobros registrados (${filtrados.length})
+    </div>
+    ${filtrados.map(c=>`
+      <div class="caja-row" style="align-items:flex-start;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:.88rem;">${c.nombre} ${c.tel?'· '+c.tel:''}</div>
+          <div style="font-size:.78rem;color:var(--muted);">
+            ${fmtFechaCaja(c.fecha)} · ${c.hora}:00 hs · ${c.cupos} cupos
+            <span class="caja-badge ${mediosBadge[c.medio]||'cb-online'}">${c.medio}</span>
+            <span class="caja-badge" style="background:rgba(46,196,182,.1);color:var(--cyan);">${c.tipo}</span>
+            ${c.obs?'<br>📝 '+c.obs:''}
+          </div>
+        </div>
+        <div style="text-align:right;white-space:nowrap;">
+          <div style="font-weight:700;color:var(--green);">${fmtMoney(c.monto)}</div>
+          <button onclick="eliminarCobroManual(${c.id})"
+            style="background:none;border:none;color:var(--red);font-size:.75rem;cursor:pointer;margin-top:2px;">✕ Eliminar</button>
+        </div>
+      </div>`).join('')}
+  ` : '<p style="color:var(--muted);font-size:.82rem;margin-top:.5rem;">No hay cobros registrados en el período seleccionado.</p>';
+
+  document.getElementById('lista-manuales').innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════
