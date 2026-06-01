@@ -159,7 +159,7 @@ tr:hover td{background:rgba(244,131,31,0.03);}
     <div class="topbar-brand">🎮 Juguemos Todos <span>Admin</span></div>
     <div class="top-right">
       <span class="last-update" id="last-update"></span>
-      <button class="btn-refresh" onclick="cargarDatos()">⟳ Actualizar</button>
+      <button class="btn-refresh" id="btn-refresh" onclick="actualizarDatos()">⟳ Actualizar</button>
       <button class="btn-logout" onclick="logout()">Salir</button>
     </div>
   </div>
@@ -176,7 +176,7 @@ tr:hover td{background:rgba(244,131,31,0.03);}
     <!-- STATS GLOBALES -->
     <div class="stats">
       <div class="stat"><div class="stat-lbl">Reservas</div><div class="stat-val" id="st-total" style="color:var(--accent)">—</div><div class="stat-sub">confirmadas</div></div>
-      <div class="stat"><div class="stat-lbl">Participantes</div><div class="stat-val" id="st-pax" style="color:var(--cyan)">—</div><div class="stat-sub">total personas</div></div>
+      <div class="stat"><div class="stat-lbl">Cupos reservados</div><div class="stat-val" id="st-pax" style="color:var(--cyan)">—</div><div class="stat-sub">total cupos</div></div>
       <div class="stat"><div class="stat-lbl">Recaudado</div><div class="stat-val" id="st-rec" style="color:var(--green)">—</div><div class="stat-sub">ARS confirmado</div></div>
       <div class="stat"><div class="stat-lbl">Promo 2x1</div><div class="stat-val" id="st-promo" style="color:var(--promo)">—</div><div class="stat-sub">reservas con promo</div></div>
       <div class="stat"><div class="stat-lbl">Ocupación</div><div class="stat-val" id="st-ocup" style="color:var(--yellow)">—</div><div class="stat-sub">% global</div></div>
@@ -270,22 +270,40 @@ let ocupacion = {};
 // ═══════════════════════════════════════════════
 function login(){
   if(document.getElementById('pwd').value === ADMIN_CFG.password){
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').style.display='block';
-    cargarDatos();
+    sessionStorage.setItem('jt_admin_auth','1');
+    mostrarApp();
   } else {
     document.getElementById('l-err').style.display='block';
   }
 }
+function mostrarApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  cargarDatos();
+}
 function logout(){
+  sessionStorage.removeItem('jt_admin_auth');
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').style.display='none';
   document.getElementById('pwd').value='';
 }
+// Al cargar la página, chequear si ya estaba autenticado
+window.addEventListener('load', ()=>{
+  if(sessionStorage.getItem('jt_admin_auth')==='1'){
+    mostrarApp();
+  }
+});
 
 // ═══════════════════════════════════════════════
 // CARGAR DATOS
 // ═══════════════════════════════════════════════
+async function actualizarDatos(){
+  const btn = document.getElementById('btn-refresh');
+  if(btn){ btn.textContent='⟳ Cargando...'; btn.disabled=true; }
+  await cargarDatos();
+  if(btn){ btn.textContent='⟳ Actualizar'; btn.disabled=false; }
+}
+
 async function cargarDatos(){
   if(!ADMIN_CFG.sheetCSV || ADMIN_CFG.sheetCSV==='TU_SHEET_CSV_URL'){
     reservas = demoData();
