@@ -315,41 +315,45 @@ function parsearCSV(txt){
   const lines = txt.trim().split('\n');
   if(lines.length < 2) return [];
 
-  // Leer encabezado y mapear columnas dinámicamente
   const headers = lines[0].split(',').map(c=>c.replace(/^"|"$/g,'').trim().toLowerCase());
-  const idx = name => { const i=headers.findIndex(h=>h.includes(name)); return i>=0?i:-1; };
-
-  const iTimestamp = idx('marca')>=0?idx('marca'):idx('timestamp')>=0?idx('timestamp'):0;
-  const iCodigo    = idx('digo')>=0?idx('digo'):1;
-  const iNombre    = idx('nombre')>=0?idx('nombre'):2;
-  const iTel       = idx('tel')>=0?idx('tel'):3;
-  const iMail      = idx('email')>=0?idx('email'):idx('mail')>=0?idx('mail'):4;
-  const iFecha     = idx('fecha')>=0?idx('fecha'):5;
-  const iHora      = idx('hora')>=0?idx('hora'):6;
-  const iPax       = idx('parti')>=0?idx('parti'):7;
-  const iTotal     = idx('total')>=0?idx('total'):8;
-  const iPromo     = idx('promo')>=0?idx('promo'):9;
-  const iEstado    = idx('estado')>=0?idx('estado'):10;
-  const iPayment   = idx('payment')>=0?idx('payment'):11;
+  
+  // Detectar si el timestamp tiene coma (ej: "17/07/2026, 11:38:32")
+  // En ese caso todas las columnas se desplazan 1 lugar
+  const primeraDatos = lines[1] || '';
+  // Si col0 parece fecha y col1 parece hora, hay desplazamiento
+  const cols0 = primeraDatos.split(',').map(c=>c.replace(/^"|"$/g,'').trim());
+  const tieneTimestampConComa = /\d{1,2}\/\d{1,2}\/\d{4}/.test(cols0[0]) && 
+                                 /\d{1,2}:\d{2}/.test(cols0[1]);
+  const offset = tieneTimestampConComa ? 1 : 0;
 
   return lines.slice(1).map(row=>{
     const cols = row.split(',').map(c=>c.replace(/^"|"$/g,'').trim());
-    if(cols.length < 3) return null;
-    const horaRaw = cols[iHora]||'0';
+    if(cols.length < 4) return null;
+
+    // Con offset: 0+1:Timestamp | 1+offset:Código | 2+offset:Nombre | 3+offset:Tel
+    // 4+offset:Email | 5+offset:Fecha | 6+offset:Hora | 7+offset:Pax
+    // 8+offset:Total | 9+offset:Promo | 10+offset:Estado | 11+offset:PaymentID
+    const o = offset;
+    const timestampStr = cols[0] + (o ? ', '+cols[1] : '');
+    const horaRaw = cols[6+o]||'0';
     const horaNum = parseInt(horaRaw.replace(':00','').replace('hs','').trim())||0;
+    const totalRaw = parseInt(cols[8+o])||0;
+    // Si el total parece muy chico (< 50), multiplicar por precio base
+    const totalFinal = totalRaw < 50 ? totalRaw * 100 : totalRaw;
+
     return {
-      timestamp:    cols[iTimestamp]||'',
-      codigo:       cols[iCodigo]||'',
-      nombre:       cols[iNombre]||'',
-      tel:          cols[iTel]||'',
-      mail:         cols[iMail]||'',
-      fecha:        cols[iFecha]||'',
+      timestamp:    timestampStr,
+      codigo:       cols[1+o]||'',
+      nombre:       cols[2+o]||'',
+      tel:          cols[3+o]||'',
+      mail:         cols[4+o]||'',
+      fecha:        cols[5+o]||'',
       hora:         horaNum,
-      participantes:parseInt(cols[iPax])||0,
-      total:        parseInt(cols[iTotal])||0,
-      promo:        cols[iPromo]||'No',
-      estado:       cols[iEstado]||'Pagado',
-      paymentId:    cols[iPayment]||'',
+      participantes:parseInt(cols[7+o])||0,
+      total:        totalFinal,
+      promo:        cols[9+o]||'No',
+      estado:       cols[10+o]||'Pagado',
+      paymentId:    cols[11+o]||'',
     };
   }).filter(r=>r && r.codigo);
 }
