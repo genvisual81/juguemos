@@ -400,7 +400,7 @@ const ADMIN_CFG = {
   // Instrucciones: Archivo → Compartir → Publicar en la web
   // → Seleccioná la hoja "Reservas" → formato CSV → Publicar → copiar link
   sheetCSV: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv',
-  appsScriptURL: 'https://script.google.com/macros/s/AKfycbyqrlvRLnbiAdq0cZ4hNYO1B1y33XZJ8gsOW3rpfh_1TH0PE2-Dmk9MMRFGVghMqcK_/exec',
+  appsScriptURL: 'https://script.google.com/macros/s/AKfycbytgccdsoonYs0oG6KiVgasfiJM0DVJ6v78uuJKWR79K5nmejwNeHiObEtWGZ_nuhgi/exec',
 
   precio: 17000,
   cupos: 40,
@@ -475,6 +475,7 @@ async function cargarDatos(){
   renderAgenda();
   renderCharts();
   renderEstadisticas();
+  await cargarCobrosManualles();
   document.getElementById('last-update').textContent =
     'Act: ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
 }
@@ -817,7 +818,16 @@ function cambiarTab(name, el){
 // ═══════════════════════════════════════════════
 // MÓDULO CAJA
 // ═══════════════════════════════════════════════
-let cobrosManuales = JSON.parse(localStorage.getItem('jt_cobros_manuales')||'[]');
+let cobrosManuales = []; // Se carga desde Google Sheets
+
+async function cargarCobrosManualles(){
+  if(!ADMIN_CFG.appsScriptURL) return;
+  try {
+    const r = await fetch(ADMIN_CFG.appsScriptURL+'?action=getCobrosManualles');
+    const d = await r.json();
+    if(d.ok) cobrosManuales = d.cobros;
+  } catch(e){ console.log('Error cargando cobros:', e); }
+}
 
 function setCajaHoy(){
   const hoy = new Date().toISOString().split('T')[0];
@@ -974,8 +984,14 @@ function registrarCobroManual(){
     timestamp: new Date().toLocaleString('es-AR')
   };
 
+  // Guardar en Sheets
+  if(ADMIN_CFG.appsScriptURL){
+    const url = ADMIN_CFG.appsScriptURL +
+      '?action=guardarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobro));
+    fetch(url).catch(()=>{});
+  }
+
   cobrosManuales.push(cobro);
-  localStorage.setItem('jt_cobros_manuales', JSON.stringify(cobrosManuales));
 
   // Limpiar form
   ['mf-nombre','mf-tel','mf-cupos','mf-monto','mf-obs'].forEach(id=>{
@@ -988,7 +1004,11 @@ function registrarCobroManual(){
 function eliminarCobroManual(id){
   if(!confirm('¿Eliminar este cobro?')) return;
   cobrosManuales = cobrosManuales.filter(c=>c.id!==id);
-  localStorage.setItem('jt_cobros_manuales', JSON.stringify(cobrosManuales));
+  // Eliminar en Sheets
+  if(ADMIN_CFG.appsScriptURL){
+    const url = ADMIN_CFG.appsScriptURL+'?action=eliminarCobroManual&id='+id;
+    fetch(url).catch(()=>{});
+  }
   renderCaja();
 }
 
