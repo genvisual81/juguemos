@@ -205,11 +205,10 @@ tr:hover td{background:rgba(244,131,31,0.03);}
   </div>
 
   <div class="tabs">
-    <div class="tab active" onclick="cambiarTab('resumen',this)">📊 Resumen</div>
-    <div class="tab" onclick="cambiarTab('agenda',this)">📅 Agenda</div>
-    <div class="tab" onclick="cambiarTab('reservas',this)">📋 Reservas</div>
-    <div class="tab" onclick="cambiarTab('estadisticas',this)">📈 Estadísticas</div>
+    <div class="tab active" onclick="cambiarTab('reservas',this)">📋 Reservas</div>
     <div class="tab" onclick="cambiarTab('caja',this)">💰 Caja</div>
+    <div class="tab" onclick="cambiarTab('agenda',this)">📊 Ocupación</div>
+    <div class="tab" onclick="cambiarTab('resumen',this)">📈 Resumen & Estadísticas</div>
   </div>
 
   <div class="main">
@@ -224,7 +223,8 @@ tr:hover td{background:rgba(244,131,31,0.03);}
     </div>
 
     <!-- TAB RESUMEN -->
-    <div id="tc-resumen" class="tc active">
+    <div id="tc-resumen" class="tc">
+      <!-- Gráficos de resumen -->
       <div class="chart-card">
         <div class="chart-title">Ocupación % por fecha</div>
         <div class="bar-chart" id="ch-fechas"></div>
@@ -232,6 +232,19 @@ tr:hover td{background:rgba(244,131,31,0.03);}
       <div class="chart-card">
         <div class="chart-title">Participantes por horario (acumulado)</div>
         <div class="bar-chart" id="ch-horas"></div>
+      </div>
+      <!-- Estadísticas unificadas -->
+      <div style="border-top:1.5px solid var(--border);padding-top:1rem;margin-top:.5rem;">
+        <div style="font-family:'Fredoka One',cursive;font-size:1rem;margin-bottom:.9rem;color:var(--text);">📊 Estadísticas generales</div>
+        <div class="recaud-grid" id="recaud-grid"></div>
+        <div class="chart-card" style="margin-top:.75rem;">
+          <div class="chart-title">Distribución horaria total</div>
+          <div class="bar-chart" id="ch-dist"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Participantes por día de la semana (Jue → Mié)</div>
+          <div class="bar-chart" id="ch-dias"></div>
+        </div>
       </div>
     </div>
 
@@ -246,7 +259,7 @@ tr:hover td{background:rgba(244,131,31,0.03);}
     </div>
 
     <!-- TAB RESERVAS -->
-    <div id="tc-reservas" class="tc">
+    <div id="tc-reservas" class="tc active">
       <div class="filters">
         <input type="text" class="f-input" id="buscar" placeholder="🔍 Buscar nombre, email, código..." oninput="renderTabla()">
         <select class="f-input" id="fil-fecha" onchange="renderTabla()"><option value="">— Todas las fechas —</option></select>
@@ -265,22 +278,10 @@ tr:hover td{background:rgba(244,131,31,0.03);}
     </div>
 
     <!-- TAB ESTADÍSTICAS -->
-    <div id="tc-estadisticas" class="tc">
-      <div class="recaud-grid" id="recaud-grid"></div>
-      <div class="chart-card">
-        <div class="chart-title">Participantes por día de la semana (Jue → Mié)</div>
-        <div class="bar-chart" id="ch-dias"></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Distribución horaria total</div>
-        <div class="bar-chart" id="ch-dist"></div>
-      </div>
-    </div>
-
-    <!-- TAB CAJA -->
+        <!-- TAB CAJA -->
     <div id="tc-caja" class="tc">
 
-      <!-- Filtro de fechas -->
+      <!-- 1. FILTROS -->
       <div class="caja-filtros">
         <label>Desde:</label>
         <input type="date" class="f-input" id="caja-desde" onchange="renderCaja()">
@@ -290,29 +291,8 @@ tr:hover td{background:rgba(244,131,31,0.03);}
         <button class="btn-cerrar-caja" onclick="setCajaEvento()">🗓 Todo el evento</button>
       </div>
 
-      <div class="caja-grid">
-        <!-- CAJA ONLINE -->
-        <div class="caja-box">
-          <div class="caja-box-title">🌐 Caja Online <small style="font-size:.72rem;color:var(--muted);font-family:Quicksand,sans-serif;font-weight:600;">(Mercado Pago)</small></div>
-          <div class="caja-total" id="caja-online-total" style="color:var(--accent)">$0</div>
-          <div class="caja-sub" id="caja-online-sub">0 reservas · 0 cupos</div>
-          <div class="caja-detalle" id="caja-online-detalle"></div>
-        </div>
-
-        <!-- CAJA MANUAL -->
-        <div class="caja-box">
-          <div class="caja-box-title">🧾 Caja Manual <small style="font-size:.72rem;color:var(--muted);font-family:Quicksand,sans-serif;font-weight:600;">(presencial)</small></div>
-          <div class="caja-total" id="caja-manual-total" style="color:var(--green)">$0</div>
-          <div class="caja-sub" id="caja-manual-sub">0 cobros registrados</div>
-          <div class="caja-detalle" id="caja-manual-detalle"></div>
-        </div>
-      </div>
-
-      <!-- RESUMEN TOTAL -->
-      <div class="resumen-caja" id="resumen-caja-total"></div>
-
-      <!-- FORMULARIO CAJA MANUAL -->
-      <div class="caja-box" style="margin-top:1rem;">
+      <!-- 2. FORMULARIO REGISTRO PRESENCIAL -->
+      <div class="caja-box" style="margin-bottom:1rem;">
         <div class="caja-box-title">➕ Registrar cobro presencial</div>
         <div class="manual-form">
           <div class="mf-row">
@@ -323,26 +303,6 @@ tr:hover td{background:rgba(244,131,31,0.03);}
             <div>
               <div class="mf-label">Teléfono</div>
               <input class="mf-input" type="tel" id="mf-tel" placeholder="Ej: 2914123456">
-            </div>
-          </div>
-          <div class="mf-row">
-            <div>
-              <div class="mf-label">Fecha del turno</div>
-              <input class="mf-input" type="date" id="mf-fecha">
-            </div>
-            <div>
-              <div class="mf-label">Horario</div>
-              <select class="mf-input" id="mf-hora">
-                <option value="">-- Horario --</option>
-                <option value="12">12:00 hs</option>
-                <option value="13">13:00 hs</option>
-                <option value="14">14:00 hs</option>
-                <option value="15">15:00 hs</option>
-                <option value="16">16:00 hs</option>
-                <option value="17">17:00 hs</option>
-                <option value="18">18:00 hs</option>
-                <option value="19">19:00 hs</option>
-              </select>
             </div>
           </div>
           <div class="mf-row">
@@ -364,24 +324,31 @@ tr:hover td{background:rgba(244,131,31,0.03);}
               <div class="mf-label">Monto cobrado</div>
               <input class="mf-input" type="number" id="mf-monto" placeholder="Ej: 17000">
             </div>
-            <div>
-              <div class="mf-label">Tipo</div>
-              <select class="mf-input" id="mf-tipo">
-                <option value="Normal">Normal</option>
-                <option value="2x1">Promo 2x1</option>
-                <option value="3x2">Promo 3x2</option>
-              </select>
+            <div style="display:flex;align-items:flex-end;">
+              <button class="btn-registrar" style="margin-bottom:0;" onclick="registrarCobroManual()">✅ Registrar cobro</button>
             </div>
           </div>
-          <div>
-            <div class="mf-label">Observación (opcional)</div>
-            <input class="mf-input" type="text" id="mf-obs" placeholder="Ej: segundo turno, cortesía, etc.">
-          </div>
-          <button class="btn-registrar" onclick="registrarCobroManual()">✅ Registrar cobro</button>
         </div>
-
-        <!-- Lista de cobros manuales del día -->
         <div style="margin-top:1rem;" id="lista-manuales"></div>
+      </div>
+
+      <!-- 3. RESUMEN TOTAL -->
+      <div class="resumen-caja" id="resumen-caja-total" style="margin-bottom:1rem;"></div>
+
+      <!-- 4. CAJA ONLINE + CAJA MANUAL -->
+      <div class="caja-grid">
+        <div class="caja-box">
+          <div class="caja-box-title">🌐 Caja Online <small style="font-size:.72rem;color:var(--muted);font-family:Quicksand,sans-serif;font-weight:600;">(Mercado Pago)</small></div>
+          <div class="caja-total" id="caja-online-total" style="color:var(--accent)">$0</div>
+          <div class="caja-sub" id="caja-online-sub">0 reservas · 0 cupos</div>
+          <div class="caja-detalle" id="caja-online-detalle"></div>
+        </div>
+        <div class="caja-box">
+          <div class="caja-box-title">🧾 Caja Manual <small style="font-size:.72rem;color:var(--muted);font-family:Quicksand,sans-serif;font-weight:600;">(presencial)</small></div>
+          <div class="caja-total" id="caja-manual-total" style="color:var(--green)">$0</div>
+          <div class="caja-sub" id="caja-manual-sub">0 cobros registrados</div>
+          <div class="caja-detalle" id="caja-manual-detalle"></div>
+        </div>
       </div>
 
     </div><!-- /tc-caja -->
@@ -771,12 +738,11 @@ function renderEstadisticas(){
   const ocup=capTotal?Math.round(totalPax/capTotal*100):0;
 
   document.getElementById('recaud-grid').innerHTML=[
+    {l:'Total reservas',v:pag.length,c:'var(--accent)'},
     {l:'Recaudación total',v:'$'+total.toLocaleString('es-AR'),c:'var(--green)'},
-    {l:'Ticket promedio',v:'$'+ticketProm.toLocaleString('es-AR'),c:'var(--accent)'},
-    {l:'Pax por reserva (prom)',v:pag.length?(totalPax/pag.length).toFixed(1):'—',c:'var(--cyan)'},
+    {l:'Ticket promedio',v:'$'+ticketProm.toLocaleString('es-AR'),c:'var(--cyan)'},
     {l:'Ocupación global',v:ocup+'%',c:'var(--yellow)'},
     {l:'Reservas con promo 2x1',v:conPromo,c:'var(--promo)'},
-    {l:'Total reservas',v:pag.length,c:'var(--accent)'},
   ].map(x=>`
     <div class="recaud-card">
       <div class="rc-lbl">${x.l}</div>
@@ -812,6 +778,11 @@ function cambiarTab(name, el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tc-'+name).classList.add('active');
   el.classList.add('active');
+  // Ocultar botonera de stats en Caja (ya está en Estadísticas)
+  const stats = document.querySelector('.stats');
+  if(stats) stats.style.display = name==='caja' ? 'none' : 'grid';
+  // Cargar estadísticas al abrir resumen unificado
+  if(name==='resumen') renderEstadisticas();
   if(name==='caja') renderCaja();
 }
 
@@ -963,25 +934,28 @@ function renderCaja(){
 function registrarCobroManual(){
   const nombre = document.getElementById('mf-nombre').value.trim();
   const tel    = document.getElementById('mf-tel').value.trim();
-  const fecha  = document.getElementById('mf-fecha').value;
-  const hora   = document.getElementById('mf-hora').value;
   const cupos  = document.getElementById('mf-cupos').value;
   const medio  = document.getElementById('mf-medio').value;
   const monto  = document.getElementById('mf-monto').value;
-  const tipo   = document.getElementById('mf-tipo').value;
-  const obs    = document.getElementById('mf-obs').value.trim();
 
-  if(!nombre||!fecha||!hora||!cupos||!monto){
-    alert('Completá los campos obligatorios: Nombre, Fecha, Horario, Cupos y Monto.');
+  if(!nombre||!cupos||!monto){
+    alert('Completá los campos obligatorios: Nombre, Cupos y Monto.');
     return;
   }
 
+  // Usar fecha y hora actual del momento del cobro
+  const ahora = new Date();
+  const fechaHoy = ahora.toISOString().split('T')[0];
+  const horaHoy  = ahora.getHours();
+
   const cobro = {
     id: Date.now(),
-    nombre, tel, fecha, hora: parseInt(hora),
+    nombre, tel,
+    fecha: fechaHoy,
+    hora: horaHoy,
     cupos: parseInt(cupos), medio, monto: parseFloat(monto),
-    tipo, obs,
-    timestamp: new Date().toLocaleString('es-AR')
+    tipo: 'Manual', obs: '',
+    timestamp: ahora.toLocaleString('es-AR')
   };
 
   // Guardar en Sheets
@@ -994,7 +968,7 @@ function registrarCobroManual(){
   cobrosManuales.push(cobro);
 
   // Limpiar form
-  ['mf-nombre','mf-tel','mf-cupos','mf-monto','mf-obs'].forEach(id=>{
+  ['mf-nombre','mf-tel','mf-cupos','mf-monto'].forEach(id=>{
     document.getElementById(id).value='';
   });
 
