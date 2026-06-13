@@ -46,6 +46,10 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .login-sub{color:var(--muted);font-size:.88rem;margin-bottom:2rem;}
 .l-input{width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'Quicksand',sans-serif;font-size:1rem;outline:none;margin-bottom:.75rem;transition:border-color .2s;}
 .l-input:focus{border-color:var(--accent);}
+.l-pwd-wrap{position:relative;margin-bottom:.75rem;}
+.l-pwd-wrap .l-input{margin-bottom:0;padding-right:44px;}
+.l-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.2rem;line-height:1;padding:8px;color:var(--muted);display:flex;align-items:center;justify-content:center;}
+.l-eye:hover{color:var(--accent);}
 .l-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:13px;font-family:'Fredoka One',cursive;font-size:1.1rem;cursor:pointer;transition:opacity .2s;}
 .l-btn:hover{opacity:.9;}
 .l-err{color:var(--red);font-size:.82rem;margin-top:.5rem;display:none;}
@@ -192,7 +196,10 @@ tr:hover td{background:rgba(244,131,31,0.03);}
          alt="Juguemos Todos" />
     <div class="login-title">Admin Panel</div>
     <div class="login-sub">Juguemos Todos · Vacaciones de Invierno</div>
-    <input class="l-input" type="password" id="pwd" placeholder="Contraseña" onkeydown="if(event.key==='Enter')login()">
+    <div class="l-pwd-wrap">
+      <input class="l-input" type="password" id="pwd" placeholder="Contraseña" onkeydown="if(event.key==='Enter')login()">
+      <button type="button" class="l-eye" id="l-eye" onclick="togglePwd()" aria-label="Mostrar contraseña">👁️</button>
+    </div>
     <button class="l-btn" onclick="login()">Ingresar</button>
     <div class="l-err" id="l-err">Contraseña incorrecta</div>
   </div>
@@ -396,6 +403,19 @@ function login(){
     mostrarApp();
   } else {
     document.getElementById('l-err').style.display='block';
+  }
+}
+function togglePwd(){
+  const inp = document.getElementById('pwd');
+  const eye = document.getElementById('l-eye');
+  if(inp.type === 'password'){
+    inp.type = 'text';
+    eye.textContent = '🙈';
+    eye.setAttribute('aria-label','Ocultar contraseña');
+  } else {
+    inp.type = 'password';
+    eye.textContent = '👁️';
+    eye.setAttribute('aria-label','Mostrar contraseña');
   }
 }
 function mostrarApp(){
