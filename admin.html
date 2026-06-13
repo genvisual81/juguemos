@@ -236,6 +236,15 @@ tr:hover td{background:rgba(244,131,31,0.03);}
 
     <!-- TAB RESUMEN -->
     <div id="tc-resumen" class="tc">
+      <!-- Filtro de rango de fechas -->
+      <div class="caja-filtros" style="margin-bottom:1rem;">
+        <label>Desde:</label>
+        <input type="date" class="f-input" id="res-desde">
+        <label>Hasta:</label>
+        <input type="date" class="f-input" id="res-hasta">
+        <button class="btn-cerrar-caja" onclick="renderEstadisticas()">🔍 Buscar</button>
+        <button class="btn-cerrar-caja" onclick="setResumenEvento()">🗓 Todo el evento</button>
+      </div>
       <!-- Gráficos de resumen -->
       <div class="chart-card">
         <div class="chart-title">Ocupación % por fecha</div>
@@ -521,9 +530,14 @@ function parsearCSV(txt){
 
 function toISOFecha(f){
   if(!f) return f;
+  // ISO con tiempo: "2026-06-02T03:00:00.000Z" → "2026-06-02"
+  if(/^\d{4}-\d{2}-\d{2}T/.test(f)) return f.slice(0,10);
+  // ISO puro: "2026-06-02"
   if(/^\d{4}-\d{2}-\d{2}/.test(f)) return f.slice(0,10);
+  // dd/mm/yyyy
   const m = f.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  // "Mar 21 Jul 2026" / "vie 17 jul 2026"
   const m2 = f.trim().match(/^[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+(\d{1,2})\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+(\d{4})$/);
   if(m2){
     const idxMes = MESES.findIndex(mes=>mes.toLowerCase()===m2[2].toLowerCase().slice(0,3));
@@ -753,8 +767,9 @@ function barChart(id, data, colorFn){
 }
 
 function renderCharts(){
-  const pag=reservas.filter(r=>r.estado==='Pagado');
-  const fechas=[...new Set(pag.map(r=>r.fecha))].sort();
+  const {desde, hasta} = getFiltroResumen();
+  const pag=reservas.filter(r=>r.estado==='Pagado'&&enRango(r.fecha, desde, hasta));
+  const fechas=[...new Set(pag.map(r=>r.fecha))].sort((a,b)=>toISOFecha(a).localeCompare(toISOFecha(b)));
   const horasCap=ADMIN_CFG.hF-ADMIN_CFG.h0+1;
 
   // Por fecha
@@ -778,7 +793,9 @@ function renderCharts(){
 // ESTADÍSTICAS
 // ═══════════════════════════════════════════════
 function renderEstadisticas(){
-  const pag=reservas.filter(r=>r.estado==='Pagado');
+  renderCharts();
+  const {desde, hasta} = getFiltroResumen();
+  const pag=reservas.filter(r=>r.estado==='Pagado'&&enRango(r.fecha, desde, hasta));
   const total=pag.reduce((s,r)=>s+r.total,0);
   const totalPax=pag.reduce((s,r)=>s+r.participantes,0);
   const conPromo=pag.filter(r=>r.promo==='2x1').length;
@@ -806,7 +823,7 @@ function renderEstadisticas(){
   ];
   const dwMap={4:0,5:1,6:2,0:3,1:4,2:5,3:6};
   pag.forEach(r=>{
-    const dw=new Date(r.fecha+'T12:00:00').getDay();
+    const dw=new Date(toISOFecha(r.fecha)+'T12:00:00').getDay();
     if(dwMap[dw]!==undefined) dsd[dwMap[dw]].v+=r.participantes;
   });
   barChart('ch-dias',dsd,()=>'var(--accent)');
@@ -863,13 +880,25 @@ function setCajaEvento(){
   renderCaja();
 }
 
+function getFiltroResumen(){
+  const desde = document.getElementById('res-desde').value;
+  const hasta = document.getElementById('res-hasta').value;
+  return {desde, hasta};
+}
+
+function setResumenEvento(){
+  document.getElementById('res-desde').value = ADMIN_CFG.fechaInicio||'2026-07-17';
+  document.getElementById('res-hasta').value = ADMIN_CFG.fechaFin||'2026-08-02';
+  renderEstadisticas();
+}
+
 function fmtMoney(n){ return '$'+Math.round(n).toLocaleString('es-AR'); }
 function fmtFechaCaja(f){
   if(!f) return '';
-  const d = new Date(f+'T12:00:00');
+  const iso = toISOFecha(f);
+  const d = new Date(iso+'T12:00:00');
   if(isNaN(d.getTime())) return f;
   const dias=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  const meses=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   return dias[d.getDay()]+' '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
 }
 
@@ -881,14 +910,7 @@ function getFiltroCaja(){
 
 function enRango(fecha, desde, hasta){
   if(!fecha) return false;
-  // Normalizar fecha a YYYY-MM-DD
-  let f = fecha;
-  if(f.includes(' ')) f = f.split(' ')[0]; // quitar hora
-  if(f.includes('/')) {
-    const p = f.split('/');
-    if(p[0].length===4) f = p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');
-    else f = p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
-  }
+  const f = toISOFecha(fecha);
   if(!desde && !hasta) return true;
   if(desde && f < desde) return false;
   if(hasta && f > hasta) return false;
