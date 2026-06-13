@@ -524,6 +524,11 @@ function toISOFecha(f){
   if(/^\d{4}-\d{2}-\d{2}/.test(f)) return f.slice(0,10);
   const m = f.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  const m2 = f.trim().match(/^[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+(\d{1,2})\s+([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+(\d{4})$/);
+  if(m2){
+    const idxMes = MESES.findIndex(mes=>mes.toLowerCase()===m2[2].toLowerCase().slice(0,3));
+    if(idxMes>=0) return m2[3]+'-'+String(idxMes+1).padStart(2,'0')+'-'+m2[1].padStart(2,'0');
+  }
   return f;
 }
 
@@ -601,6 +606,18 @@ function fmtFecha(f){
     // formato dd/mm/yyyy
     const parts = f.split('/');
     d = new Date(parts[2]+'-'+parts[1].padStart(2,'0')+'-'+parts[0].padStart(2,'0')+'T12:00:00');
+  } else if(/^[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+\d{1,2}\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+\d{4}$/.test(f.trim())){
+    // formato "Mar 21 Jul 2026" / "vie 17 jul 2026"
+    const partes = f.trim().split(/\s+/);
+    const dd = partes[1];
+    const mesAbrev = partes[2].toLowerCase();
+    const yyyy = partes[3];
+    const idxMes = MESES.findIndex(m=>m.toLowerCase()===mesAbrev.slice(0,3));
+    if(idxMes>=0){
+      d = new Date(yyyy+'-'+String(idxMes+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0')+'T12:00:00');
+    } else {
+      d = new Date(f.includes('T') ? f : f+'T12:00:00');
+    }
   } else {
     d = new Date(f.includes('T') ? f : f+'T12:00:00');
   }
