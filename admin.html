@@ -239,10 +239,11 @@ tr:hover td{background:rgba(244,131,31,0.03);}
       <!-- Filtro de rango de fechas -->
       <div class="caja-filtros" style="margin-bottom:1rem;">
         <label>Desde:</label>
-        <input type="date" class="f-input" id="res-desde">
+        <select class="f-input" id="res-desde"><option value="">— Desde —</option></select>
         <label>Hasta:</label>
-        <input type="date" class="f-input" id="res-hasta">
+        <select class="f-input" id="res-hasta"><option value="">— Hasta —</option></select>
         <button class="btn-cerrar-caja" onclick="renderEstadisticas()">🔍 Buscar</button>
+        <button class="btn-cerrar-caja" onclick="setResumenHoy()">📅 Hoy</button>
         <button class="btn-cerrar-caja" onclick="setResumenEvento()">🗓 Todo el evento</button>
       </div>
       <!-- Gráficos de resumen -->
@@ -305,9 +306,10 @@ tr:hover td{background:rgba(244,131,31,0.03);}
       <!-- 1. FILTROS -->
       <div class="caja-filtros">
         <label>Desde:</label>
-        <input type="date" class="f-input" id="caja-desde" onchange="renderCaja()">
+        <select class="f-input" id="caja-desde"><option value="">— Desde —</option></select>
         <label>Hasta:</label>
-        <input type="date" class="f-input" id="caja-hasta" onchange="renderCaja()">
+        <select class="f-input" id="caja-hasta"><option value="">— Hasta —</option></select>
+        <button class="btn-cerrar-caja" onclick="renderCaja()">🔍 Buscar</button>
         <button class="btn-cerrar-caja" onclick="setCajaHoy()">📅 Hoy</button>
         <button class="btn-cerrar-caja" onclick="setCajaEvento()">🗓 Todo el evento</button>
       </div>
@@ -485,30 +487,46 @@ function parsearCSV(txt){
   const lines = txt.trim().split('\n');
   if(lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(c=>c.replace(/^"|"$/g,'').trim().toLowerCase());
-  
-  // Detectar si el timestamp tiene coma (ej: "17/07/2026, 11:38:32")
-  // En ese caso todas las columnas se desplazan 1 lugar
-  const primeraDatos = lines[1] || '';
-  // Si col0 parece fecha y col1 parece hora, hay desplazamiento
-  const cols0 = primeraDatos.split(',').map(c=>c.replace(/^"|"$/g,'').trim());
-  const tieneTimestampConComa = /\d{1,2}\/\d{1,2}\/\d{4}/.test(cols0[0]) && 
-                                 /\d{1,2}:\d{2}/.test(cols0[1]);
+  // Parser robusto: respeta campos entre comillas (que pueden contener comas)
+  function splitCSVRow(row){
+    const result = [];
+    let field = '', inQ = false;
+    for(let i = 0; i < row.length; i++){
+      const ch = row[i];
+      if(ch === '"'){
+        if(inQ && row[i+1] === '"'){ field += '"'; i++; } // comilla escapada
+        else inQ = !inQ;
+      } else if(ch === ',' && !inQ){
+        result.push(field.trim()); field = '';
+      } else {
+        field += ch;
+      }
+    }
+    result.push(field.trim());
+    return result;
+  }
+
+  const headers = splitCSVRow(lines[0]).map(c=>c.toLowerCase());
+
+  // Detectar si col[0] es timestamp con coma interna ya procesado como un campo
+  // (el parser robusto ya une esos campos), así que simplemente offset=0 siempre
+  // salvo que col[0] sea timestamp y col[1] no sea código (no empieza con letra+números)
+  const primeraCols = splitCSVRow(lines[1] || '');
+  // Si col[0] parece ser sólo la parte de fecha de un timestamp que quedó partido
+  // (sin que el CSV tenga comillas), detectamos por si col[1] parece hora
+  const tieneTimestampConComa = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(primeraCols[0]) && 
+                                 /^\d{1,2}:\d{2}/.test(primeraCols[1]);
   const offset = tieneTimestampConComa ? 1 : 0;
 
   return lines.slice(1).map(row=>{
-    const cols = row.split(',').map(c=>c.replace(/^"|"$/g,'').trim());
+    const cols = splitCSVRow(row);
     if(cols.length < 4) return null;
 
-    // Con offset: 0+1:Timestamp | 1+offset:Código | 2+offset:Nombre | 3+offset:Tel
-    // 4+offset:Email | 5+offset:Fecha | 6+offset:Hora | 7+offset:Pax
-    // 8+offset:Total | 9+offset:Promo | 10+offset:Estado | 11+offset:PaymentID
     const o = offset;
     const timestampStr = cols[0] + (o ? ', '+cols[1] : '');
     const horaRaw = cols[6+o]||'0';
     const horaNum = parseInt(horaRaw.replace(':00','').replace('hs','').trim())||0;
     const totalRaw = parseInt(cols[8+o])||0;
-    // Si el total parece muy chico (< 50), multiplicar por precio base
     const totalFinal = totalRaw < 50 ? totalRaw * 100 : totalRaw;
 
     return {
@@ -561,19 +579,33 @@ function calcularOcupacion(){
 // STATS
 // ═══════════════════════════════════════════════
 function actualizarStats(){
-  const pag=reservas.filter(r=>r.estado==='Pagado');
-  const totalPax=pag.reduce((s,r)=>s+r.participantes,0);
-  const totalMonto=pag.reduce((s,r)=>s+r.total,0);
-  const conPromo=pag.filter(r=>r.promo==='2x1').length;
-  const fechas=[...new Set(pag.map(r=>r.fecha))];
-  const capTotal=(ADMIN_CFG.hF-ADMIN_CFG.h0+1)*fechas.length*ADMIN_CFG.cupos;
-  const ocup=capTotal?Math.round(totalPax/capTotal*100):0;
+  const fF = document.getElementById('fil-fecha') ? document.getElementById('fil-fecha').value : '';
+  const fH = document.getElementById('fil-hora')  ? document.getElementById('fil-hora').value  : '';
+  const txt = document.getElementById('buscar') ? document.getElementById('buscar').value.trim().toLowerCase() : '';
 
-  document.getElementById('st-total').textContent=pag.length;
-  document.getElementById('st-pax').textContent=totalPax;
-  document.getElementById('st-rec').textContent='$'+(totalMonto/1000).toFixed(0)+'k';
-  document.getElementById('st-promo').textContent=conPromo;
-  document.getElementById('st-ocup').textContent=ocup+'%';
+  const pag = reservas.filter(r=>{
+    if(r.estado !== 'Pagado') return false;
+    if(fF && toISOFecha(r.fecha) !== fF) return false;
+    if(fH && String(r.hora) !== String(fH)) return false;
+    if(txt){
+      const haystack = (r.nombre+r.mail+r.tel+r.codigo).toLowerCase();
+      if(!haystack.includes(txt)) return false;
+    }
+    return true;
+  });
+
+  const totalPax   = pag.reduce((s,r)=>s+r.participantes,0);
+  const totalMonto = pag.reduce((s,r)=>s+r.total,0);
+  const conPromo   = pag.filter(r=>r.promo==='2x1').length;
+  const fechas     = [...new Set(pag.map(r=>r.fecha))];
+  const capTotal   = (ADMIN_CFG.hF-ADMIN_CFG.h0+1)*fechas.length*ADMIN_CFG.cupos;
+  const ocup       = capTotal ? Math.round(totalPax/capTotal*100) : 0;
+
+  document.getElementById('st-total').textContent = pag.length;
+  document.getElementById('st-pax').textContent   = totalPax;
+  document.getElementById('st-rec').textContent   = '$'+(totalMonto/1000).toFixed(0)+'k';
+  document.getElementById('st-promo').textContent = conPromo;
+  document.getElementById('st-ocup').textContent  = ocup+'%';
 }
 
 // ═══════════════════════════════════════════════
@@ -596,11 +628,13 @@ function poblarFiltros(){
   const horas = [];
   for(let h=ADMIN_CFG.h0; h<=ADMIN_CFG.hF; h++) horas.push(h);
 
-  ['fil-fecha','fil-fecha-ag'].forEach(id=>{
+  ['fil-fecha','fil-fecha-ag','caja-desde','caja-hasta','res-desde','res-hasta'].forEach(id=>{
     const sel=document.getElementById(id);
     if(!sel) return;
     const v=sel.value;
-    sel.innerHTML='<option value="">— Todas las fechas —</option>';
+    const esDesdHasta = ['caja-desde','res-desde'].includes(id);
+    const labelBlank = esDesdHasta ? '— Desde —' : ['caja-hasta','res-hasta'].includes(id) ? '— Hasta —' : '— Todas las fechas —';
+    sel.innerHTML=`<option value="">${labelBlank}</option>`;
     fechas.forEach(f=>{ sel.innerHTML+=`<option value="${f}">${fmtFecha(f)}</option>`; });
     sel.value=v;
   });
@@ -688,6 +722,7 @@ function renderTabla(){
   const totPax=fil.reduce((s,r)=>s+r.participantes,0);
   document.getElementById('tbl-count').textContent=
     fil.length+' reserva'+(fil.length!==1?'s':'')+' · '+totPax+' participantes';
+  actualizarStats();
 }
 
 // ═══════════════════════════════════════════════
@@ -874,6 +909,13 @@ function setCajaHoy(){
   renderCaja();
 }
 
+function setResumenHoy(){
+  const hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('res-desde').value = hoy;
+  document.getElementById('res-hasta').value = hoy;
+  renderEstadisticas();
+}
+
 function setCajaEvento(){
   document.getElementById('caja-desde').value = ADMIN_CFG.fechaInicio||'2026-07-17';
   document.getElementById('caja-hasta').value = ADMIN_CFG.fechaFin||'2026-08-02';
@@ -944,7 +986,7 @@ function renderCaja(){
   });
 
   const detalleOnlineHTML = Object.values(porHora)
-    .sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.hora-b.hora)
+    .sort((a,b)=>toISOFecha(a.fecha).localeCompare(toISOFecha(b.fecha))||a.hora-b.hora)
     .map(h=>`
       <div class="caja-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
         <div style="display:flex;justify-content:space-between;width:100%;">
