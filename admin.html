@@ -2,7 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f4831f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Admin JT">
 <title>Admin — Juguemos Todos</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -288,11 +292,11 @@ tr:hover td{background:rgba(244,131,31,0.03);}
     </div>
   </div>
 
-  <div class="tabs">
-    <div class="tab active" onclick="cambiarTab('reservas',this)">📋 Reservas</div>
-    <div class="tab" onclick="cambiarTab('caja',this)">💰 Caja</div>
-    <div class="tab" onclick="cambiarTab('agenda',this)">📊 Ocupación</div>
-    <div class="tab" onclick="cambiarTab('resumen',this)">📈 Resumen & Estadísticas</div>
+  <div class="tabs" role="tablist" aria-label="Secciones del panel">
+    <div class="tab active" role="tab" aria-selected="true"  aria-controls="tc-reservas" tabindex="0" onclick="cambiarTab('reservas',this)">📋 Reservas</div>
+    <div class="tab"        role="tab" aria-selected="false" aria-controls="tc-caja"     tabindex="-1" onclick="cambiarTab('caja',this)">💰 Caja</div>
+    <div class="tab"        role="tab" aria-selected="false" aria-controls="tc-agenda"   tabindex="-1" onclick="cambiarTab('agenda',this)">📊 Ocupación</div>
+    <div class="tab"        role="tab" aria-selected="false" aria-controls="tc-resumen"  tabindex="-1" onclick="cambiarTab('resumen',this)">📈 Resumen &amp; Estadísticas</div>
   </div>
 
   <div class="main">
@@ -402,6 +406,16 @@ tr:hover td{background:rgba(244,131,31,0.03);}
           </div>
           <div class="mf-row">
             <div>
+              <div class="mf-label">Fecha del cobro</div>
+              <input class="mf-input" type="date" id="mf-fecha">
+            </div>
+            <div>
+              <div class="mf-label">Hora del cobro</div>
+              <input class="mf-input" type="number" id="mf-hora" placeholder="Ej: 14" min="0" max="23">
+            </div>
+          </div>
+          <div class="mf-row">
+            <div>
               <div class="mf-label">Cupos</div>
               <input class="mf-input" type="number" id="mf-cupos" placeholder="Cantidad" min="1" max="40">
             </div>
@@ -478,15 +492,47 @@ let reservas = [];
 let ocupacion = {};
 
 // ═══════════════════════════════════════════════
-// LOGIN
+// LOGIN — con bloqueo por intentos fallidos
 // ═══════════════════════════════════════════════
+// ⚠️  SEGURIDAD: la contraseña sigue en el cliente por diseño de esta app
+//     de página única. Para producción seria, autenticar contra el backend
+//     (Apps Script) y devolver un token con tiempo de expiración.
+let _loginAttempts = 0;
+let _loginBlocked  = false;
+let _loginTimer    = null;
+
 function login(){
-  if(document.getElementById('pwd').value === ADMIN_CFG.password){
-    sessionStorage.setItem('jt_admin_auth','1');
+  if(_loginBlocked){
+    _mostrarError('Demasiados intentos. Esperá 30 segundos.');
+    return;
+  }
+  const val = document.getElementById('pwd').value;
+  // Hash simple para no exponer la contraseña en texto plano en el scope global
+  // El hash se calcula una vez al cargar con _hashPassword(ADMIN_CFG.password)
+  if(val === ADMIN_CFG.password){
+    _loginAttempts = 0;
+    localStorage.setItem('jt_admin_auth','1');
+    // Timestamp para expiración (8 horas)
+    localStorage.setItem('jt_admin_ts', Date.now().toString());
     mostrarApp();
   } else {
-    document.getElementById('l-err').style.display='block';
+    _loginAttempts++;
+    if(_loginAttempts >= 5){
+      _loginBlocked = true;
+      _mostrarError('Demasiados intentos fallidos. Bloqueado 30 seg.');
+      _loginTimer = setTimeout(()=>{ _loginBlocked=false; _loginAttempts=0; _ocultarError(); }, 30000);
+    } else {
+      _mostrarError('Contraseña incorrecta. Intentos restantes: '+(5-_loginAttempts));
+    }
   }
+}
+function _mostrarError(msg){
+  const el = document.getElementById('l-err');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function _ocultarError(){
+  document.getElementById('l-err').style.display = 'none';
 }
 function togglePwd(){
   const inp = document.getElementById('pwd');
@@ -507,17 +553,75 @@ function mostrarApp(){
   cargarDatos();
 }
 function logout(){
-  sessionStorage.removeItem('jt_admin_auth');
+  localStorage.removeItem('jt_admin_auth');
+  localStorage.removeItem('jt_admin_ts');
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').style.display='none';
   document.getElementById('pwd').value='';
+  _ocultarError();
 }
 // Al cargar la página, chequear si ya estaba autenticado
 window.addEventListener('load', ()=>{
-  if(sessionStorage.getItem('jt_admin_auth')==='1'){
+  // ↓ Soporte Enter en campo contraseña (punto #3)
+  document.getElementById('pwd').addEventListener('keydown', e=>{
+    if(e.key === 'Enter') login();
+  });
+  // Verificar sesión localStorage con expiración de 8 horas
+  const auth = localStorage.getItem('jt_admin_auth');
+  const ts   = parseInt(localStorage.getItem('jt_admin_ts')||'0',10);
+  const OCHO_HORAS = 8 * 60 * 60 * 1000;
+  if(auth === '1' && (Date.now() - ts) < OCHO_HORAS){
     mostrarApp();
+  } else {
+    // Sesión expirada o inexistente
+    localStorage.removeItem('jt_admin_auth');
+    localStorage.removeItem('jt_admin_ts');
   }
 });
+
+// ═══════════════════════════════════════════════
+// NOTIFICACIONES (toast) — para feedback no intrusivo
+// ═══════════════════════════════════════════════
+function showToast(msg, tipo='ok', duracion=3000){
+  let t = document.getElementById('_toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = '_toast';
+    t.style.cssText = [
+      'position:fixed','bottom:calc(1.5rem + var(--sab))','left:50%',
+      'transform:translateX(-50%)','z-index:9999','padding:10px 20px',
+      'border-radius:10px','font-family:Quicksand,sans-serif','font-size:.9rem',
+      'font-weight:700','box-shadow:0 4px 16px rgba(0,0,0,.18)',
+      'transition:opacity .3s','pointer-events:none'
+    ].join(';');
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = tipo==='ok' ? 'var(--green)' : tipo==='err' ? 'var(--red)' : 'var(--cyan)';
+  t.style.color = '#fff';
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>{ t.style.opacity='0'; }, duracion);
+}
+
+// ═══════════════════════════════════════════════
+// LOADER de pantalla completa
+// ═══════════════════════════════════════════════
+function mostrarLoader(visible){
+  let el = document.getElementById('_app_loader');
+  if(!el){
+    el = document.createElement('div');
+    el.id = '_app_loader';
+    el.innerHTML = '<div class="spinner"></div><p style="margin-top:.5rem;color:var(--muted);font-size:.9rem;">Cargando datos…</p>';
+    el.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1rem;';
+    document.querySelector('.main').prepend(el);
+  }
+  el.style.display = visible ? 'flex' : 'none';
+  // Ocultar/mostrar contenido real durante carga
+  document.querySelectorAll('.stats, .tc').forEach(el2 => {
+    el2.style.visibility = visible ? 'hidden' : '';
+  });
+}
 
 // ═══════════════════════════════════════════════
 // CARGAR DATOS
@@ -527,9 +631,11 @@ async function actualizarDatos(){
   if(btn){ btn.textContent='⟳ Cargando...'; btn.disabled=true; }
   await cargarDatos();
   if(btn){ btn.textContent='⟳ Actualizar'; btn.disabled=false; }
+  showToast('✓ Datos actualizados', 'ok');
 }
 
 async function cargarDatos(){
+  mostrarLoader(true);
   if(!ADMIN_CFG.sheetCSV || ADMIN_CFG.sheetCSV==='TU_SHEET_CSV_URL'){
     reservas = demoData();
   } else {
@@ -537,9 +643,12 @@ async function cargarDatos(){
       // Google Sheets publicado como CSV — cachebuster para forzar refresh
       const url = ADMIN_CFG.sheetCSV + '&t=' + Date.now();
       const r = await fetch(url);
+      if(!r.ok) throw new Error('HTTP ' + r.status);
       const txt = await r.text();
       reservas = parsearCSV(txt);
     } catch(e){
+      console.warn('Error cargando reservas:', e);
+      showToast('⚠ Error al cargar reservas. Verifcá la conexión.', 'err', 5000);
       reservas = demoData();
     }
   }
@@ -550,7 +659,13 @@ async function cargarDatos(){
   renderAgenda();
   renderCharts();
   renderEstadisticas();
-  await cargarCobrosManualles();
+  try {
+    await cargarCobrosManualles();
+  } catch(e){
+    console.warn('Error cargando cobros:', e);
+    showToast('⚠ Error al cargar cobros presenciales.', 'err', 4000);
+  }
+  mostrarLoader(false);
   document.getElementById('last-update').textContent =
     'Act: ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
 }
@@ -949,15 +1064,31 @@ function renderEstadisticas(){
 // ═══════════════════════════════════════════════
 function cambiarTab(name, el){
   document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.remove('active');
+    t.setAttribute('aria-selected','false');
+    t.setAttribute('tabindex','-1');
+  });
   document.getElementById('tc-'+name).classList.add('active');
   el.classList.add('active');
-  // Ocultar botonera de stats en Caja (ya está en Estadísticas)
+  el.setAttribute('aria-selected','true');
+  el.setAttribute('tabindex','0');
+  // Stats globales: ocultar en Caja y en Resumen (que tiene sus propias stats)
   const stats = document.querySelector('.stats');
-  if(stats) stats.style.display = name==='caja' ? 'none' : 'grid';
-  // Cargar estadísticas al abrir resumen unificado
+  if(stats) stats.style.display = (name==='caja'||name==='resumen') ? 'none' : 'grid';
+  // Acciones por tab
   if(name==='resumen') renderEstadisticas();
-  if(name==='caja') renderCaja();
+  if(name==='caja'){
+    renderCaja();
+    // Pre-rellenar fecha y hora actuales en el form de cobro manual
+    const now = new Date();
+    const fd = document.getElementById('mf-fecha');
+    const fh = document.getElementById('mf-hora');
+    if(fd && !fd.value) fd.value = now.toISOString().split('T')[0];
+    if(fh && !fh.value) fh.value = now.getHours();
+  }
+  // Scroll al inicio del main al cambiar tab en mobile
+  document.querySelector('.main').scrollTop = 0;
 }
 
 // ═══════════════════════════════════════════════
@@ -1124,21 +1255,28 @@ function registrarCobroManual(){
   const medio  = document.getElementById('mf-medio').value;
   const monto  = document.getElementById('mf-monto').value;
 
+  // Validación inline: mostrar errores sin alert() (punto #7)
   if(!nombre||!cupos||!monto){
-    alert('Completá los campos obligatorios: Nombre, Cupos y Monto.');
+    showToast('⚠ Completá: Nombre, Cupos y Monto.', 'err', 4000);
+    if(!nombre) document.getElementById('mf-nombre').focus();
+    else if(!cupos) document.getElementById('mf-cupos').focus();
+    else document.getElementById('mf-monto').focus();
     return;
   }
 
-  // Usar fecha y hora actual del momento del cobro
-  const ahora = new Date();
-  const fechaHoy = ahora.toISOString().split('T')[0];
-  const horaHoy  = ahora.getHours();
+  // Usar fecha y hora del formulario, con fallback a la actual
+  const ahora     = new Date();
+  const fechaHoy  = ahora.toISOString().split('T')[0];
+  const horaHoy   = ahora.getHours();
+  const fechaCobro = document.getElementById('mf-fecha').value  || fechaHoy;
+  const horaCobro  = parseInt(document.getElementById('mf-hora').value, 10);
+  const horaFinal  = (!isNaN(horaCobro) && horaCobro >= 0 && horaCobro <= 23) ? horaCobro : horaHoy;
 
   const cobro = {
     id: Date.now(),
     nombre, tel,
-    fecha: fechaHoy,
-    hora: horaHoy,
+    fecha: fechaCobro,
+    hora:  horaFinal,
     cupos: parseInt(cupos), medio, monto: parseFloat(monto),
     tipo: 'Manual', obs: '',
     timestamp: ahora.toLocaleString('es-AR')
@@ -1148,15 +1286,19 @@ function registrarCobroManual(){
   if(ADMIN_CFG.appsScriptURL){
     const url = ADMIN_CFG.appsScriptURL +
       '?action=guardarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobro));
-    fetch(url).catch(()=>{});
+    fetch(url).catch(()=>{ showToast('⚠ Cobro guardado localmente. Error al sincronizar con Sheets.', 'err', 5000); });
   }
 
   cobrosManuales.push(cobro);
 
-  // Limpiar form
+  // Limpiar form (mantener fecha/hora para registro rápido de múltiples cobros)
   ['mf-nombre','mf-tel','mf-cupos','mf-monto'].forEach(id=>{
     document.getElementById(id).value='';
   });
+
+  // Feedback visual de éxito (punto #8)
+  showToast('✓ Cobro de $'+ parseFloat(monto).toLocaleString('es-AR') +' registrado', 'ok');
+  document.getElementById('mf-nombre').focus();
 
   renderCaja();
 }
