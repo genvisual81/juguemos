@@ -429,11 +429,11 @@ tr:hover td{background:rgba(244,131,31,0.03);}
           <div class="mf-row">
             <div>
               <div class="mf-label">Fecha del cobro</div>
-              <input class="mf-input" type="date" id="mf-fecha">
+              <select class="mf-input" id="mf-fecha"></select>
             </div>
             <div>
-              <div class="mf-label">Hora del cobro</div>
-              <input class="mf-input" type="number" id="mf-hora" placeholder="Ej: 14" min="0" max="23">
+              <div class="mf-label">Horario del turno</div>
+              <select class="mf-input" id="mf-hora"></select>
             </div>
           </div>
           <div class="mf-row">
@@ -455,9 +455,8 @@ tr:hover td{background:rgba(244,131,31,0.03);}
               <div class="mf-label">Monto cobrado</div>
               <input class="mf-input" type="number" id="mf-monto" placeholder="Ej: 17000">
             </div>
-            <div>
-              <div class="mf-label">Observaciones</div>
-              <input class="mf-input" type="text" id="mf-obs" placeholder="Opcional">
+            <div style="display:flex;align-items:flex-end;">
+              <!-- espacio intencional — columna libre para futuros campos -->
             </div>
           </div>
           <div class="mf-row">
@@ -863,6 +862,32 @@ function poblarFiltros(){
   const selH=document.getElementById('fil-hora');
   selH.innerHTML='<option value="">— Todos los horarios —</option>';
   horas.forEach(h=>{ selH.innerHTML+=`<option value="${h}">${h}:00 hs</option>`; });
+
+  // ── Selectores del formulario de cobro presencial ───────
+  // Fecha: solo fechas del evento; default = hoy (o la primera disponible)
+  const selMfFecha = document.getElementById('mf-fecha');
+  if(selMfFecha){
+    const hoy = new Date().toISOString().split('T')[0];
+    const prevVal = selMfFecha.value;
+    selMfFecha.innerHTML = fechas.map(f =>
+      `<option value="${f}">${fmtFecha(f)}</option>`
+    ).join('');
+    selMfFecha.value = (prevVal && fechas.includes(prevVal))
+      ? prevVal
+      : (fechas.includes(hoy) ? hoy : (fechas[0] || ''));
+  }
+
+  // Hora del turno: solo los horarios configurados en ADMIN_CFG
+  const selMfHora = document.getElementById('mf-hora');
+  if(selMfHora){
+    const prevH = selMfHora.value;
+    selMfHora.innerHTML = horas.map(h =>
+      `<option value="${h}">${h}:00 hs</option>`
+    ).join('');
+    selMfHora.value = (prevH && horas.includes(parseInt(prevH,10)))
+      ? prevH
+      : String(horas[0] ?? '');
+  }
 }
 
 function fmtFecha(f){
@@ -1174,12 +1199,7 @@ function cambiarTab(name, el){
   if(name==='resumen') renderEstadisticas();
   if(name==='caja'){
     renderCaja();
-    // Pre-rellenar fecha y hora actuales en el form de cobro manual
-    const now = new Date();
-    const fd = document.getElementById('mf-fecha');
-    const fh = document.getElementById('mf-hora');
-    if(fd && !fd.value) fd.value = now.toISOString().split('T')[0];
-    if(fh && !fh.value) fh.value = now.getHours();
+    // Los selectores de fecha/hora ya se poblan en poblarFiltros() con "hoy" por defecto
   }
   // Scroll al inicio del main al cambiar tab en mobile
   document.querySelector('.main').scrollTop = 0;
@@ -1348,13 +1368,20 @@ function renderCaja(){
 
 /** Limpia el formulario y vuelve al modo "Registrar" */
 function _resetFormCobro(){
-  ['mf-nombre','mf-tel','mf-cupos','mf-monto','mf-obs'].forEach(id=>{
+  ['mf-nombre','mf-tel','mf-cupos','mf-monto'].forEach(id=>{
     document.getElementById(id).value='';
   });
-  // Restaurar fecha/hora a "ahora"
-  const now = new Date();
-  document.getElementById('mf-fecha').value = now.toISOString().split('T')[0];
-  document.getElementById('mf-hora').value  = now.getHours();
+  // Restaurar fecha al selector con "hoy" (o primera fecha del evento)
+  const selF = document.getElementById('mf-fecha');
+  if(selF){
+    const hoy = new Date().toISOString().split('T')[0];
+    const opts = [...selF.options].map(o=>o.value);
+    selF.value = opts.includes(hoy) ? hoy : (opts[0] || '');
+  }
+  // Restaurar hora al primer turno disponible
+  const selH = document.getElementById('mf-hora');
+  if(selH && selH.options.length) selH.selectedIndex = 0;
+
   document.getElementById('mf-edit-id').value = '';
   document.getElementById('mf-titulo').textContent = '➕ Registrar cobro presencial';
   document.getElementById('mf-btn-submit').textContent = '✅ Registrar cobro';
@@ -1376,11 +1403,13 @@ function editarCobroManual(id){
   document.getElementById('mf-edit-id').value  = id;
   document.getElementById('mf-nombre').value   = c.nombre  || '';
   document.getElementById('mf-tel').value      = c.tel     || '';
-  document.getElementById('mf-fecha').value    = c.fecha   || '';
-  document.getElementById('mf-hora').value     = c.hora    != null ? c.hora : '';
+  // Fecha y hora: son selectores — asignar el valor directamente (ya tienen las opciones cargadas)
+  const selF = document.getElementById('mf-fecha');
+  if(selF) selF.value = c.fecha || '';
+  const selH = document.getElementById('mf-hora');
+  if(selH) selH.value = c.hora != null ? String(c.hora) : '';
   document.getElementById('mf-cupos').value    = c.cupos   || '';
   document.getElementById('mf-monto').value    = c.monto   || '';
-  document.getElementById('mf-obs').value      = c.obs     || '';
   // Seleccionar medio de pago correcto
   const sel = document.getElementById('mf-medio');
   for(let i=0; i<sel.options.length; i++){
@@ -1403,7 +1432,6 @@ function guardarCobroManual(){
   const cupos  = document.getElementById('mf-cupos').value;
   const medio  = document.getElementById('mf-medio').value;
   const monto  = document.getElementById('mf-monto').value;
-  const obs    = document.getElementById('mf-obs').value.trim();
   const editId = document.getElementById('mf-edit-id').value;
 
   // Validación
@@ -1458,7 +1486,7 @@ function guardarCobroManual(){
       fecha:  fechaCobro,
       hora:   horaFinal,
       cupos:  parseInt(cupos), medio, monto: parseFloat(monto),
-      tipo: 'Manual', obs,
+      tipo: 'Manual', obs: '',
       timestamp: ahora.toLocaleString('es-AR')
     };
 
