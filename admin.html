@@ -231,9 +231,10 @@ tr:hover td{background:rgba(244,131,31,0.03);}
   font-family:'Fredoka One',cursive;font-size:1rem;cursor:pointer;transition:opacity .2s;}
 .btn-registrar:hover{opacity:.88;}
 .btn-cerrar-caja{background:var(--card2);border:1.5px solid var(--border);color:var(--text);border-radius:10px;
-  padding:11px 18px; /* ↑ de 9px a 11px */
-  font-family:'Fredoka One',cursive;font-size:.9rem;cursor:pointer;transition:background .2s;}
+  padding:11px 18px;font-family:'Fredoka One',cursive;font-size:.9rem;cursor:pointer;transition:background .2s, color .2s;outline:none;}
 .btn-cerrar-caja:hover{background:var(--cyan);color:#fff;}
+.btn-cerrar-caja:active{background:var(--cyan);color:#fff;opacity:.8;}
+.btn-cerrar-caja:focus{outline:none;box-shadow:none;}
 .resumen-caja{background:var(--card2);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-top:1rem;}
 .rc-title{font-family:'Fredoka One',cursive;font-size:1rem;margin-bottom:.75rem;color:var(--text);}
 .rc-total-row{display:flex;justify-content:space-between;padding:6px 0;font-size:.88rem;border-bottom:1px solid var(--border);}
@@ -338,9 +339,9 @@ tr:hover td{background:rgba(244,131,31,0.03);}
         <select class="f-input" id="res-desde"><option value="">— Desde —</option></select>
         <label>Hasta:</label>
         <select class="f-input" id="res-hasta"><option value="">— Hasta —</option></select>
-        <button class="btn-cerrar-caja" onclick="renderEstadisticas()">🔍 Buscar</button>
-        <button class="btn-cerrar-caja" onclick="setResumenHoy()">📅 Hoy</button>
-        <button class="btn-cerrar-caja" onclick="setResumenEvento()">🗓 Todo el evento</button>
+        <button class="btn-cerrar-caja" onclick="renderEstadisticas();this.blur()">🔍 Buscar</button>
+        <button class="btn-cerrar-caja" onclick="setResumenHoy();this.blur()">📅 Hoy</button>
+        <button class="btn-cerrar-caja" onclick="setResumenEvento();this.blur()">🗓 Todo el evento</button>
       </div>
       <!-- Gráficos de resumen -->
       <div class="chart-card">
@@ -405,9 +406,9 @@ tr:hover td{background:rgba(244,131,31,0.03);}
         <select class="f-input" id="caja-desde"><option value="">— Desde —</option></select>
         <label>Hasta:</label>
         <select class="f-input" id="caja-hasta"><option value="">— Hasta —</option></select>
-        <button class="btn-cerrar-caja" onclick="renderCaja()">🔍 Buscar</button>
-        <button class="btn-cerrar-caja" onclick="setCajaHoy()">📅 Hoy</button>
-        <button class="btn-cerrar-caja" onclick="setCajaEvento()">🗓 Todo el evento</button>
+        <button class="btn-cerrar-caja" onclick="renderCaja();this.blur()">🔍 Buscar</button>
+        <button class="btn-cerrar-caja" onclick="setCajaHoy();this.blur()">📅 Hoy</button>
+        <button class="btn-cerrar-caja" onclick="setCajaEvento();this.blur()">🗓 Todo el evento</button>
       </div>
 
       <!-- 2. FORMULARIO REGISTRO PRESENCIAL -->
@@ -861,7 +862,7 @@ function poblarFiltros(){
 
   const selH=document.getElementById('fil-hora');
   selH.innerHTML='<option value="">— Todos los horarios —</option>';
-  horas.forEach(h=>{ selH.innerHTML+=`<option value="${h}">${h}:00 hs</option>`; });
+  horas.forEach(h=>{ selH.innerHTML+=`<option value="${h}">${h} hs</option>`; });
 
   // ── Selectores del formulario de cobro presencial ───────
   // Fecha: solo fechas del evento; default = hoy (o la primera disponible)
@@ -882,7 +883,7 @@ function poblarFiltros(){
   if(selMfHora){
     const prevH = selMfHora.value;
     selMfHora.innerHTML = horas.map(h =>
-      `<option value="${h}">${h}:00 hs</option>`
+      `<option value="${h}">${h} hs</option>`
     ).join('');
     selMfHora.value = (prevH && horas.includes(parseInt(prevH,10)))
       ? prevH
@@ -954,7 +955,7 @@ function renderTabla(){
     return `
     <tr>
       <td style="font-weight:700;">${fmtFecha(r.fecha)}</td>
-      <td style="font-family:'Fredoka One',cursive;color:var(--cyan);">${r.hora}:00 hs</td>
+      <td style="font-family:'Fredoka One',cursive;color:var(--cyan);">${r.hora} hs</td>
       <td style="font-weight:700;">${r.nombre}</td>
       <td><span class="badge ${tipo.cls}">${tipo.txt}</span></td>
       <td style="text-align:center;font-weight:700;">${r.participantes}</td>
@@ -1013,12 +1014,12 @@ function renderAgenda(){
       const names=resHora.map(r=>`· ${r.nombre} (${r.participantes} cupos)`).join('  ');
       horasHTML.push(`
         <div class="hora-row">
-          <span class="hr-label">${h}:00${promo?`<span class="hr-promo">2x1</span>`:''}</span>
+          <span class="hr-label">${h} hs${promo?`<span class="hr-promo">2x1</span>`:''}</span>
           <div class="prog-wrap"><div class="prog" style="width:${pct}%;background:${color};"></div></div>
           <span class="hr-ocp">${ocp}/${ADMIN_CFG.cupos}</span>
           <span class="hr-lib" style="color:${lib>0?'var(--green)':'var(--red)'};">${lib>0?lib+' libres':'COMPLETO'}</span>
         </div>
-        ${names?`<div class="hr-names">${names}</div>`:''}
+        ${''/* nombres omitidos en vista Ocupación */}
       `);
     }
     return `
@@ -1043,14 +1044,15 @@ function renderAgenda(){
  * @param {Function} colorFn  - función que recibe el dato y devuelve color CSS
  * @param {string}   [unit]   - sufijo de unidad para las etiquetas del eje Y (ej. '%')
  */
-function barChart(id, data, colorFn, unit=''){
+function barChart(id, data, colorFn, unit='', forceMax=null){
   const el = document.getElementById(id);
   if(!el) return;
 
-  const max  = Math.max(...data.map(d => d.v), 1);
-
-  // Calcular un "techo" bonito (múltiplo de 5, 10, 25, 50, 100…)
-  const niceMax = niceNumber(max);
+  const dataMax = Math.max(...data.map(d => d.v), 1);
+  // forceMax: techo fijo del eje Y. Si los datos lo superan, se expande igual.
+  const niceMax = forceMax != null
+    ? Math.max(forceMax, dataMax)   // nunca recortar barras que superen el techo configurado
+    : niceNumber(dataMax);
 
   // 4 ticks en el eje Y (0, 25%, 50%, 75%, 100% del niceMax)
   const TICKS = 4;
@@ -1119,7 +1121,7 @@ function renderCharts(){
     const cap=horasCap*ADMIN_CFG.cupos;
     return{l:fmtFecha(f).slice(0,6), v:Math.round(pax/cap*100)};
   });
-  barChart('ch-fechas',dataF,d=>d.v>70?'var(--red)':d.v>40?'var(--yellow)':'var(--accent)','%');
+  barChart('ch-fechas',dataF,d=>d.v>70?'var(--red)':d.v>40?'var(--yellow)':'var(--accent)','%',100);
 
   // Por hora
   const dataH=[];
@@ -1127,7 +1129,7 @@ function renderCharts(){
     const pax=pag.filter(r=>r.hora===h).reduce((s,r)=>s+r.participantes,0);
     dataH.push({l:h+':00',v:pax,promo:h===12||h===13});
   }
-  barChart('ch-horas',dataH,d=>d.promo?'var(--promo)':'var(--cyan)');
+  barChart('ch-horas',dataH,d=>d.promo?'var(--promo)':'var(--cyan)','',ADMIN_CFG.cupos);
 }
 
 // ═══════════════════════════════════════════════
@@ -1175,7 +1177,7 @@ function renderEstadisticas(){
     const p=pag.filter(r=>r.hora===h).reduce((s,r)=>s+r.participantes,0);
     distH.push({l:h+':00',v:p,promo:h===12||h===13});
   }
-  barChart('ch-dist',distH,d=>d.promo?'var(--promo)':'var(--cyan)');
+  barChart('ch-dist',distH,d=>d.promo?'var(--promo)':'var(--cyan)','',ADMIN_CFG.cupos);
 }
 
 // ═══════════════════════════════════════════════
@@ -1307,7 +1309,7 @@ function renderCaja(){
     .map(h=>`
       <div class="caja-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
         <div style="display:flex;justify-content:space-between;width:100%;">
-          <span class="caja-key">${fmtFechaCaja(h.fecha)} · ${h.hora}:00 hs</span>
+          <span class="caja-key">${fmtFechaCaja(h.fecha)} · ${h.hora} hs</span>
           <span class="caja-val" style="color:var(--accent)">${fmtMoney(h.total)}</span>
         </div>
         <div style="font-size:.75rem;color:var(--muted);">
@@ -1581,7 +1583,7 @@ function renderListaManuales(){
         <div style="flex:1;">
           <div style="font-weight:700;font-size:.88rem;">${c.nombre} ${c.tel?'· '+c.tel:''}</div>
           <div style="font-size:.78rem;color:var(--muted);">
-            ${fmtFechaCaja(c.fecha)} · ${c.hora}:00 hs · ${c.cupos} cupos
+            ${fmtFechaCaja(c.fecha)} · ${c.hora} hs · ${c.cupos} cupos
             <span class="caja-badge ${mediosBadge[c.medio]||'cb-online'}">${c.medio}</span>
             <span class="caja-badge" style="background:rgba(46,196,182,.1);color:var(--cyan);">${c.tipo}</span>
             ${c.editado ? '<span class="caja-badge" style="background:rgba(99,102,241,.1);color:#6366f1;">editado</span>' : ''}
