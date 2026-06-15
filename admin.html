@@ -167,9 +167,29 @@ tr:hover td{background:rgba(244,131,31,0.03);}
 /* ── CHARTS ── */
 .chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-bottom:1rem;}
 .chart-title{font-family:'Fredoka One',cursive;font-size:.95rem;color:var(--text);margin-bottom:.9rem;}
-.bar-chart{display:flex;gap:5px;align-items:flex-end;height:110px;}
-.bc-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
-.bc-bar{width:100%;border-radius:4px 4px 0 0;min-height:2px;}
+
+/* Contenedor principal del gráfico con eje Y */
+.chart-wrap{display:flex;gap:0;align-items:stretch;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.chart-wrap::-webkit-scrollbar{display:none;}
+
+/* Eje Y */
+.bc-y-axis{display:flex;flex-direction:column-reverse;justify-content:space-between;padding-bottom:22px; /* alinea con las etiquetas X */
+  min-width:32px;flex-shrink:0;}
+.bc-y-tick{font-size:.6rem;color:var(--muted);text-align:right;padding-right:4px;line-height:1;}
+
+/* Área del gráfico (barras + líneas de cuadrícula) */
+.bar-chart-inner{flex:1;min-width:0;position:relative;display:flex;flex-direction:column;}
+
+/* Líneas de cuadrícula horizontales */
+.bc-grid{position:absolute;top:0;left:0;right:0;bottom:22px; /* altura de las etiquetas X */
+  display:flex;flex-direction:column-reverse;justify-content:space-between;pointer-events:none;}
+.bc-grid-line{border-top:1px dashed var(--border);width:100%;}
+
+/* Zona de barras */
+.bar-chart{display:flex;gap:5px;align-items:flex-end;height:110px;position:relative;z-index:1;padding:0 2px;}
+.bc-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:20px;}
+.bc-bar{width:100%;border-radius:4px 4px 0 0;min-height:2px;transition:opacity .2s;}
+.bc-bar:hover{opacity:.75;}
 .bc-lbl{font-size:.58rem;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .bc-val{font-size:.68rem;font-weight:700;color:var(--text);}
 
@@ -392,7 +412,9 @@ tr:hover td{background:rgba(244,131,31,0.03);}
 
       <!-- 2. FORMULARIO REGISTRO PRESENCIAL -->
       <div class="caja-box" style="margin-bottom:1rem;">
-        <div class="caja-box-title">➕ Registrar cobro presencial</div>
+        <div class="caja-box-title" id="mf-titulo">➕ Registrar cobro presencial</div>
+        <!-- id oculto para modo edición -->
+        <input type="hidden" id="mf-edit-id" value="">
         <div class="manual-form">
           <div class="mf-row">
             <div>
@@ -433,8 +455,17 @@ tr:hover td{background:rgba(244,131,31,0.03);}
               <div class="mf-label">Monto cobrado</div>
               <input class="mf-input" type="number" id="mf-monto" placeholder="Ej: 17000">
             </div>
+            <div>
+              <div class="mf-label">Observaciones</div>
+              <input class="mf-input" type="text" id="mf-obs" placeholder="Opcional">
+            </div>
+          </div>
+          <div class="mf-row">
             <div style="display:flex;align-items:flex-end;">
-              <button class="btn-registrar" style="margin-bottom:0;" onclick="registrarCobroManual()">✅ Registrar cobro</button>
+              <button class="btn-registrar" style="margin-bottom:0;" id="mf-btn-submit" onclick="guardarCobroManual()">✅ Registrar cobro</button>
+            </div>
+            <div style="display:flex;align-items:flex-end;">
+              <button class="btn-cerrar-caja" style="display:none;width:100%;" id="mf-btn-cancelar" onclick="cancelarEdicion()">✕ Cancelar edición</button>
             </div>
           </div>
         </div>
@@ -550,6 +581,9 @@ function togglePwd(){
 function mostrarApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
+  // Stats ocultas en la tab inicial (Reservas)
+  const stats = document.querySelector('.stats');
+  if(stats) stats.style.display = 'none';
   cargarDatos();
 }
 function logout(){
@@ -976,16 +1010,76 @@ function renderAgenda(){
 // ═══════════════════════════════════════════════
 // CHARTS
 // ═══════════════════════════════════════════════
-function barChart(id, data, colorFn){
-  const el=document.getElementById(id);
+
+/**
+ * Renderiza un gráfico de barras con eje Y escalado y líneas de cuadrícula.
+ * @param {string}   id       - ID del elemento contenedor (.chart-card inner)
+ * @param {Array}    data     - [{l: string, v: number, ...}]
+ * @param {Function} colorFn  - función que recibe el dato y devuelve color CSS
+ * @param {string}   [unit]   - sufijo de unidad para las etiquetas del eje Y (ej. '%')
+ */
+function barChart(id, data, colorFn, unit=''){
+  const el = document.getElementById(id);
   if(!el) return;
-  const max=Math.max(...data.map(d=>d.v),1);
-  el.innerHTML=data.map(d=>`
-    <div class="bc-col">
-      <span class="bc-val">${d.v}</span>
-      <div class="bc-bar" style="height:${Math.max(Math.round(d.v/max*100),2)}px;background:${colorFn(d)};"></div>
-      <span class="bc-lbl">${d.l}</span>
-    </div>`).join('');
+
+  const max  = Math.max(...data.map(d => d.v), 1);
+
+  // Calcular un "techo" bonito (múltiplo de 5, 10, 25, 50, 100…)
+  const niceMax = niceNumber(max);
+
+  // 4 ticks en el eje Y (0, 25%, 50%, 75%, 100% del niceMax)
+  const TICKS = 4;
+  const ticks = Array.from({length: TICKS + 1}, (_,i) => Math.round(niceMax * i / TICKS));
+
+  // Altura de la zona de barras en px (debe coincidir con CSS .bar-chart height)
+  const CHART_H = 110;
+
+  // Eje Y (de abajo hacia arriba: 0, …, niceMax)
+  const yAxisHTML = ticks.map(t =>
+    `<div class="bc-y-tick">${t}${unit}</div>`
+  ).join('');
+
+  // Líneas de cuadrícula (una por tick, de abajo a arriba)
+  const gridHTML = ticks.map(() =>
+    `<div class="bc-grid-line"></div>`
+  ).join('');
+
+  // Barras
+  const barsHTML = data.map(d => {
+    const heightPx = Math.max(Math.round(d.v / niceMax * CHART_H), d.v > 0 ? 2 : 0);
+    return `
+      <div class="bc-col" title="${d.l}: ${d.v}${unit}">
+        <span class="bc-val">${d.v}${unit}</span>
+        <div class="bc-bar" style="height:${heightPx}px;background:${colorFn(d)};"></div>
+        <span class="bc-lbl">${d.l}</span>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="chart-wrap">
+      <div class="bc-y-axis">${yAxisHTML}</div>
+      <div class="bar-chart-inner">
+        <div class="bc-grid">${gridHTML}</div>
+        <div class="bar-chart">${barsHTML}</div>
+      </div>
+    </div>`;
+}
+
+/**
+ * Devuelve un número "bonito" ≥ n para usar como techo del eje Y.
+ * Ej: 73 → 80, 105 → 120, 8 → 10
+ */
+function niceNumber(n){
+  if(n <= 0) return 10;
+  const exp  = Math.floor(Math.log10(n));
+  const frac = n / Math.pow(10, exp);
+  let nice;
+  if(frac <= 1)       nice = 1;
+  else if(frac <= 2)  nice = 2;
+  else if(frac <= 2.5) nice = 2.5;
+  else if(frac <= 5)  nice = 5;
+  else                nice = 10;
+  return Math.ceil(n / (nice * Math.pow(10, exp - 1))) * (nice * Math.pow(10, exp - 1));
 }
 
 function renderCharts(){
@@ -1000,7 +1094,7 @@ function renderCharts(){
     const cap=horasCap*ADMIN_CFG.cupos;
     return{l:fmtFecha(f).slice(0,6), v:Math.round(pax/cap*100)};
   });
-  barChart('ch-fechas',dataF,d=>d.v>70?'var(--red)':d.v>40?'var(--yellow)':'var(--accent)');
+  barChart('ch-fechas',dataF,d=>d.v>70?'var(--red)':d.v>40?'var(--yellow)':'var(--accent)','%');
 
   // Por hora
   const dataH=[];
@@ -1075,7 +1169,7 @@ function cambiarTab(name, el){
   el.setAttribute('tabindex','0');
   // Stats globales: ocultar en Caja y en Resumen (que tiene sus propias stats)
   const stats = document.querySelector('.stats');
-  if(stats) stats.style.display = (name==='caja'||name==='resumen') ? 'none' : 'grid';
+  if(stats) stats.style.display = (name==='caja'||name==='resumen'||name==='reservas'||name==='agenda') ? 'none' : 'grid';
   // Acciones por tab
   if(name==='resumen') renderEstadisticas();
   if(name==='caja'){
@@ -1248,70 +1342,197 @@ function renderCaja(){
   renderListaManuales();
 }
 
-function registrarCobroManual(){
+// ═══════════════════════════════════════════════
+// COBRO MANUAL — Crear / Editar / Eliminar
+// ═══════════════════════════════════════════════
+
+/** Limpia el formulario y vuelve al modo "Registrar" */
+function _resetFormCobro(){
+  ['mf-nombre','mf-tel','mf-cupos','mf-monto','mf-obs'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  // Restaurar fecha/hora a "ahora"
+  const now = new Date();
+  document.getElementById('mf-fecha').value = now.toISOString().split('T')[0];
+  document.getElementById('mf-hora').value  = now.getHours();
+  document.getElementById('mf-edit-id').value = '';
+  document.getElementById('mf-titulo').textContent = '➕ Registrar cobro presencial';
+  document.getElementById('mf-btn-submit').textContent = '✅ Registrar cobro';
+  document.getElementById('mf-btn-cancelar').style.display = 'none';
+  document.getElementById('mf-nombre').focus();
+}
+
+/** Cancela la edición en curso */
+function cancelarEdicion(){
+  _resetFormCobro();
+  showToast('Edición cancelada', 'info');
+}
+
+/** Carga un cobro en el formulario para editarlo */
+function editarCobroManual(id){
+  const c = cobrosManuales.find(x => x.id === id);
+  if(!c) return;
+
+  document.getElementById('mf-edit-id').value  = id;
+  document.getElementById('mf-nombre').value   = c.nombre  || '';
+  document.getElementById('mf-tel').value      = c.tel     || '';
+  document.getElementById('mf-fecha').value    = c.fecha   || '';
+  document.getElementById('mf-hora').value     = c.hora    != null ? c.hora : '';
+  document.getElementById('mf-cupos').value    = c.cupos   || '';
+  document.getElementById('mf-monto').value    = c.monto   || '';
+  document.getElementById('mf-obs').value      = c.obs     || '';
+  // Seleccionar medio de pago correcto
+  const sel = document.getElementById('mf-medio');
+  for(let i=0; i<sel.options.length; i++){
+    if(sel.options[i].value === c.medio){ sel.selectedIndex = i; break; }
+  }
+
+  // Cambiar UI a modo edición
+  document.getElementById('mf-titulo').textContent       = '✏️ Editando cobro de ' + c.nombre;
+  document.getElementById('mf-btn-submit').textContent   = '💾 Guardar cambios';
+  document.getElementById('mf-btn-cancelar').style.display = '';
+
+  // Scroll al formulario
+  document.getElementById('mf-titulo').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/** Crea un cobro nuevo O guarda los cambios de uno existente */
+function guardarCobroManual(){
   const nombre = document.getElementById('mf-nombre').value.trim();
   const tel    = document.getElementById('mf-tel').value.trim();
   const cupos  = document.getElementById('mf-cupos').value;
   const medio  = document.getElementById('mf-medio').value;
   const monto  = document.getElementById('mf-monto').value;
+  const obs    = document.getElementById('mf-obs').value.trim();
+  const editId = document.getElementById('mf-edit-id').value;
 
-  // Validación inline: mostrar errores sin alert() (punto #7)
-  if(!nombre||!cupos||!monto){
+  // Validación
+  if(!nombre || !cupos || !monto){
     showToast('⚠ Completá: Nombre, Cupos y Monto.', 'err', 4000);
-    if(!nombre) document.getElementById('mf-nombre').focus();
-    else if(!cupos) document.getElementById('mf-cupos').focus();
-    else document.getElementById('mf-monto').focus();
+    if(!nombre)       document.getElementById('mf-nombre').focus();
+    else if(!cupos)   document.getElementById('mf-cupos').focus();
+    else              document.getElementById('mf-monto').focus();
     return;
   }
 
-  // Usar fecha y hora del formulario, con fallback a la actual
-  const ahora     = new Date();
-  const fechaHoy  = ahora.toISOString().split('T')[0];
-  const horaHoy   = ahora.getHours();
-  const fechaCobro = document.getElementById('mf-fecha').value  || fechaHoy;
+  // Fecha y hora
+  const ahora      = new Date();
+  const fechaHoy   = ahora.toISOString().split('T')[0];
+  const horaHoy    = ahora.getHours();
+  const fechaCobro = document.getElementById('mf-fecha').value || fechaHoy;
   const horaCobro  = parseInt(document.getElementById('mf-hora').value, 10);
   const horaFinal  = (!isNaN(horaCobro) && horaCobro >= 0 && horaCobro <= 23) ? horaCobro : horaHoy;
 
-  const cobro = {
-    id: Date.now(),
-    nombre, tel,
-    fecha: fechaCobro,
-    hora:  horaFinal,
-    cupos: parseInt(cupos), medio, monto: parseFloat(monto),
-    tipo: 'Manual', obs: '',
-    timestamp: ahora.toLocaleString('es-AR')
-  };
+  if(editId){
+    // ── MODO EDICIÓN ──────────────────────────────
+    const idx = cobrosManuales.findIndex(c => c.id === parseInt(editId, 10));
+    if(idx === -1){ showToast('Error: cobro no encontrado.', 'err'); return; }
 
-  // Guardar en Sheets
-  if(ADMIN_CFG.appsScriptURL){
-    const url = ADMIN_CFG.appsScriptURL +
-      '?action=guardarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobro));
-    fetch(url).catch(()=>{ showToast('⚠ Cobro guardado localmente. Error al sincronizar con Sheets.', 'err', 5000); });
+    const cobroOriginal = cobrosManuales[idx];
+    const cobroEditado  = {
+      ...cobroOriginal,
+      nombre, tel,
+      fecha:  fechaCobro,
+      hora:   horaFinal,
+      cupos:  parseInt(cupos),
+      medio, monto: parseFloat(monto), obs,
+      editado: ahora.toLocaleString('es-AR')
+    };
+
+    cobrosManuales[idx] = cobroEditado;
+
+    // Sincronizar con Sheets
+    if(ADMIN_CFG.appsScriptURL){
+      const url = ADMIN_CFG.appsScriptURL +
+        '?action=editarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobroEditado));
+      fetch(url).catch(()=>{ showToast('⚠ Cambios guardados localmente. Error al sincronizar.', 'err', 5000); });
+    }
+
+    showToast('✓ Cobro de ' + nombre + ' actualizado', 'ok');
+
+  } else {
+    // ── MODO CREACIÓN ─────────────────────────────
+    const cobro = {
+      id: Date.now(),
+      nombre, tel,
+      fecha:  fechaCobro,
+      hora:   horaFinal,
+      cupos:  parseInt(cupos), medio, monto: parseFloat(monto),
+      tipo: 'Manual', obs,
+      timestamp: ahora.toLocaleString('es-AR')
+    };
+
+    if(ADMIN_CFG.appsScriptURL){
+      const url = ADMIN_CFG.appsScriptURL +
+        '?action=guardarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobro));
+      fetch(url).catch(()=>{ showToast('⚠ Cobro guardado localmente. Error al sincronizar.', 'err', 5000); });
+    }
+
+    cobrosManuales.push(cobro);
+    showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok');
   }
 
-  cobrosManuales.push(cobro);
-
-  // Limpiar form (mantener fecha/hora para registro rápido de múltiples cobros)
-  ['mf-nombre','mf-tel','mf-cupos','mf-monto'].forEach(id=>{
-    document.getElementById(id).value='';
-  });
-
-  // Feedback visual de éxito (punto #8)
-  showToast('✓ Cobro de $'+ parseFloat(monto).toLocaleString('es-AR') +' registrado', 'ok');
-  document.getElementById('mf-nombre').focus();
-
+  _resetFormCobro();
   renderCaja();
 }
 
 function eliminarCobroManual(id){
-  if(!confirm('¿Eliminar este cobro?')) return;
+  // Si estamos editando este cobro, cancelar la edición primero
+  const editId = document.getElementById('mf-edit-id').value;
+  if(editId && parseInt(editId,10) === id) cancelarEdicion();
+
+  // Confirmación mediante toast con botones (en vez de confirm() bloqueante)
+  const cobro = cobrosManuales.find(c=>c.id===id);
+  if(!cobro) return;
+  _confirmarEliminacion(id, cobro.nombre, cobro.monto);
+}
+
+function _confirmarEliminacion(id, nombre, monto){
+  // Crear/reusar panel de confirmación no bloqueante
+  let panel = document.getElementById('_confirm-panel');
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = '_confirm-panel';
+    panel.style.cssText = [
+      'position:fixed','bottom:calc(5rem + var(--sab))','left:50%',
+      'transform:translateX(-50%)','z-index:9998',
+      'background:var(--card)','border:1.5px solid var(--red)',
+      'border-radius:12px','padding:14px 18px',
+      'box-shadow:0 4px 20px rgba(0,0,0,.2)',
+      'font-family:Quicksand,sans-serif','min-width:260px','max-width:90vw',
+      'text-align:center'
+    ].join(';');
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = `
+    <div style="font-size:.88rem;font-weight:700;margin-bottom:10px;color:var(--text);">
+      ¿Eliminar cobro de <span style="color:var(--red)">${nombre}</span>?<br>
+      <span style="font-size:.8rem;color:var(--muted);">${fmtMoney(monto)}</span>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;">
+      <button onclick="_confirmarSi(${id})"
+        style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-family:Quicksand,sans-serif;font-weight:700;cursor:pointer;">
+        Sí, eliminar
+      </button>
+      <button onclick="_confirmarNo()"
+        style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 18px;font-family:Quicksand,sans-serif;font-weight:700;cursor:pointer;">
+        Cancelar
+      </button>
+    </div>`;
+  panel.style.display = 'block';
+}
+function _confirmarSi(id){
+  document.getElementById('_confirm-panel').style.display='none';
   cobrosManuales = cobrosManuales.filter(c=>c.id!==id);
-  // Eliminar en Sheets
   if(ADMIN_CFG.appsScriptURL){
     const url = ADMIN_CFG.appsScriptURL+'?action=eliminarCobroManual&id='+id;
     fetch(url).catch(()=>{});
   }
+  showToast('Cobro eliminado', 'info');
   renderCaja();
+}
+function _confirmarNo(){
+  document.getElementById('_confirm-panel').style.display='none';
 }
 
 function renderListaManuales(){
@@ -1335,13 +1556,18 @@ function renderListaManuales(){
             ${fmtFechaCaja(c.fecha)} · ${c.hora}:00 hs · ${c.cupos} cupos
             <span class="caja-badge ${mediosBadge[c.medio]||'cb-online'}">${c.medio}</span>
             <span class="caja-badge" style="background:rgba(46,196,182,.1);color:var(--cyan);">${c.tipo}</span>
-            ${c.obs?'<br>📝 '+c.obs:''}
+            ${c.editado ? '<span class="caja-badge" style="background:rgba(99,102,241,.1);color:#6366f1;">editado</span>' : ''}
+            ${c.obs ? '<br>📝 '+c.obs : ''}
           </div>
         </div>
-        <div style="text-align:right;white-space:nowrap;">
+        <div style="text-align:right;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           <div style="font-weight:700;color:var(--green);">${fmtMoney(c.monto)}</div>
-          <button onclick="eliminarCobroManual(${c.id})"
-            style="background:none;border:none;color:var(--red);font-size:.75rem;cursor:pointer;margin-top:2px;">✕ Eliminar</button>
+          <div style="display:flex;gap:6px;">
+            <button onclick="editarCobroManual(${c.id})"
+              style="background:none;border:1px solid var(--border);color:var(--cyan);font-size:.75rem;cursor:pointer;padding:2px 8px;border-radius:6px;">✏️ Editar</button>
+            <button onclick="eliminarCobroManual(${c.id})"
+              style="background:none;border:none;color:var(--red);font-size:.75rem;cursor:pointer;">✕</button>
+          </div>
         </div>
       </div>`).join('')}
   ` : '<p style="color:var(--muted);font-size:.82rem;margin-top:.5rem;">No hay cobros registrados en el período seleccionado.</p>';
