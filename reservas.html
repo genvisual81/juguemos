@@ -116,9 +116,11 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .h-btn:hover:not(.lleno){border-color:var(--accent2);background:#f0fafa;}
 .h-btn.sel{border-color:#1a9e94;background:#c8f0ed;box-shadow:0 0 0 3px rgba(26,158,148,0.25);}
 .h-btn.lleno{opacity:.4;cursor:not-allowed;}
-.h-btn.promo{border-color:rgba(230,57,70,0.35);}
-.h-btn.promo:hover:not(.lleno){border-color:var(--promo);background:#fff5f5;}
-.h-btn.promo.sel{border-color:#1a9e94;background:#c8f0ed;box-shadow:0 0 0 3px rgba(26,158,148,0.25);}
+.h-btn.promo3x2{border-color:rgba(46,196,182,0.35);}
+.h-btn.promo3x2:hover:not(.lleno){border-color:var(--accent2);background:#f0fafa;}
+.h-btn.promo3x2.sel{border-color:#1a9e94;background:#c8f0ed;box-shadow:0 0 0 3px rgba(26,158,148,0.25);}
+.promo-tag-3x2{background:var(--accent2);}
+
 .h-time{font-family:'Fredoka One',cursive;font-size:1rem;color:var(--text);}
 .h-cupos{font-size:0.65rem;color:var(--muted);margin-top:2px;}
 .h-btn.lleno .h-time{color:var(--muted);}
@@ -253,8 +255,9 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   <div class="hero-chips">
     <span class="chip">📅 Vie 17 Jul → Dom 2 Ago</span>
     <span class="chip">🕐 12hs a 20hs</span>
-    <span class="chip">👥 40 cupos por hora</span>
+    <span class="chip">👥 60 cupos por hora</span>
     <span class="chip hot">🎁 Promo 2x1 de 12 a 14hs</span>
+    <span class="chip hot" style="background:rgba(46,196,182,0.25);border-color:rgba(46,196,182,0.5);color:#1a9e94;">🎁 Promo 3x2 de 14 a 20hs</span>
   </div>
 </div>
 
@@ -262,6 +265,10 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 <div class="promo-strip">
   🔥 PROMO 2x1 — Horarios 12:00 y 13:00 hs
   <span>· Pagás por 1, entran 2</span>
+</div>
+<div class="promo-strip" style="background:var(--accent2);">
+  🎁 PROMO 3x2 — Horarios 14:00 a 19:00 hs
+  <span>· Pagás por 2, entran 3</span>
 </div>
 
 <div class="wrap">
@@ -287,6 +294,9 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   <div class="card" id="s2" style="display:none">
     <div class="card-head"><span class="ico">🕐</span> Elegí el horario</div>
     <div class="info-box">🎁 Los turnos de <strong>12:00 y 13:00 hs</strong> tienen Promo 2x1 — pagás por la mitad de los participantes.</div>
+    <div class="info-box" style="background:#f0fafa;border:1px solid rgba(46,196,182,0.25);color:#1a7a72;margin-top:8px;display:block;">
+      🎁 Los turnos de <strong>14:00 a 19:00 hs</strong> tienen Promo 3x2 — pagás por 2 de cada 3 participantes.
+    </div>
     <div class="info-box" style="background:#f0fafa;border:1px solid rgba(46,196,182,0.25);color:#1a7a72;margin-top:8px;display:block;">
       📌 Solo podés reservar <strong>un turno horario por vez</strong>.<br>
       Si deseás un segundo horario, debés solicitarlo <strong>de manera presencial en el evento</strong>,<br>
@@ -383,8 +393,8 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 // ===================== CONFIGURACIÓN =====================
 // ⚠️ COMPLETAR ESTOS DATOS ANTES DE PUBLICAR
 const CFG = {
-  precio: 100,
-  cupos: 40,
+  precio: 20000,
+  cupos: 60,
   fechaInicio: new Date(2026,6,17),  // 17 julio
   fechaFin:    new Date(2026,7,2),   // 2 agosto
   h0: 12, hF: 19,
@@ -475,12 +485,16 @@ function generarHoras(f){
     const k=f+'-'+h;
     const ocp=ocupacion[k]||0;
     const lib=CFG.cupos-ocp;
-    const promo=h===12||h===13;
+    const promo2x1=h===12||h===13;
+    const promo3x2=h>=14&&h<=19;
     const lleno=lib<=0;
     const btn=document.createElement('button');
-    btn.className='h-btn'+(promo?' promo':'')+(lleno?' lleno':'');
+    btn.className='h-btn'+(promo2x1?' promo':'')+(promo3x2?' promo3x2':'')+(lleno?' lleno':'');
     btn.dataset.h=h;
-    btn.innerHTML=`${promo?'<span class="promo-tag">2x1</span>':''}<div class="h-time">${h}:00 hs</div><div class="h-cupos">${lleno?'Completo':lib+' cupos libres'}</div>${lleno?'<span class="sold-tag">✗ Sin lugar</span>':''}`;
+    let promoTag='';
+    if(promo2x1) promoTag='<span class="promo-tag">2x1</span>';
+    if(promo3x2) promoTag='<span class="promo-tag promo-tag-3x2">3x2</span>';
+    btn.innerHTML=`${promoTag}<div class="h-time">${h}:00 hs</div><div class="h-cupos">${lleno?'Completo':lib+' cupos libres'}</div>${lleno?'<span class="sold-tag">✗ Sin lugar</span>':''}`;
     if(!lleno) btn.addEventListener('click',()=>selHour(h,btn,lib));
     g.appendChild(btn);
   }
@@ -539,19 +553,25 @@ function cerrarModalYaReserva(){
 }
 
 function renderResumen(nombre,tel,mail){
-  const promo=selHora===12||selHora===13;
-  const cobrado=promo?Math.ceil(pax/2):pax;
+  const promo2x1=selHora===12||selHora===13;
+  const promo3x2=selHora>=14&&selHora<=19;
+  const promo=promo2x1||promo3x2;
+  let cobrado;
+  if(promo2x1) cobrado=Math.ceil(pax/2);
+  else if(promo3x2) cobrado=Math.ceil(pax*2/3);
+  else cobrado=pax;
   const total=cobrado*CFG.precio;
   const fObj=new Date(selFecha+'T12:00:00');
   const fStr=DIAS[fObj.getDay()]+' '+fObj.getDate()+' '+MESES[fObj.getMonth()]+' 2026';
-  window._r={nombre,tel,mail,promo,pax,cobrado,total,fStr};
+  window._r={nombre,tel,mail,promo,promo2x1,promo3x2,pax,cobrado,total,fStr};
   let h=`
     <div class="res-row"><span class="res-k">Nombre</span><span class="res-v">${nombre}</span></div>
     <div class="res-row"><span class="res-k">Fecha</span><span class="res-v">${fStr}</span></div>
     <div class="res-row"><span class="res-k">Horario</span><span class="res-v">${selHora}:00 a ${selHora+1}:00 hs</span></div>
     <div class="res-row"><span class="res-k">Participantes</span><span class="res-v">${pax} persona${pax>1?'s':''}</span></div>
   `;
-  if(promo) h+=`<div class="res-row"><span class="res-k">Promo 2x1</span><span class="res-v promo">Pagás ${cobrado} <span class="promo-badge">2x1</span></span></div>`;
+  if(promo2x1) h+=`<div class="res-row"><span class="res-k">Promo 2x1</span><span class="res-v promo">Pagás ${cobrado} <span class="promo-badge">2x1</span></span></div>`;
+  if(promo3x2) h+=`<div class="res-row"><span class="res-k">Promo 3x2</span><span class="res-v promo">Pagás ${cobrado} <span class="promo-badge">3x2</span></span></div>`;
   h+=`<div class="res-row total"><span class="res-k">Total</span><span class="res-v big">$${total.toLocaleString('es-AR')}</span></div>`;
   document.getElementById('resumen').innerHTML=h;
 }
@@ -565,7 +585,7 @@ async function abrirModalMP(){
   const datosReserva = {
     codigo, nombre:d.nombre, tel:d.tel, mail:d.mail,
     fecha:selFecha, hora:selHora, participantes:d.pax,
-    total:d.total, promo:d.promo, fStr:d.fStr, pax:d.pax
+    total:d.total, promo:d.promo2x1?'2x1':d.promo3x2?'3x2':false, fStr:d.fStr, pax:d.pax
   };
   localStorage.setItem('jt_reserva', JSON.stringify(datosReserva));
 
@@ -740,7 +760,7 @@ function mostrarExito(codigo, datosParam){
     <div class="ex-row"><span class="ex-k">Fecha</span><span class="ex-v">${d.fStr}</span></div>
     <div class="ex-row"><span class="ex-k">Horario</span><span class="ex-v">${d.hora}:00 a ${parseInt(d.hora)+1}:00 hs</span></div>
     <div class="ex-row"><span class="ex-k">Participantes</span><span class="ex-v">${d.pax} persona${d.pax>1?'s':''}</span></div>
-    ${d.promo?`<div class="ex-row"><span class="ex-k">Promo</span><span class="ex-v" style="color:var(--promo)">2x1 activa ✓</span></div>`:''}
+    ${d.promo?(d.promo==='2x1'?`<div class="ex-row"><span class="ex-k">Promo</span><span class="ex-v" style="color:var(--promo)">2x1 activa ✓</span></div>`:`<div class="ex-row"><span class="ex-k">Promo</span><span class="ex-v" style="color:var(--promo)">3x2 activa ✓</span></div>`):''}
     <div class="ex-row"><span class="ex-k">Total pagado</span><span class="ex-v" style="color:var(--success)">$${d.total.toLocaleString('es-AR')}</span></div>
   `;
   document.getElementById('exito-codigo').textContent=codigo;
@@ -762,7 +782,7 @@ function enviarWA(){
     `🕐 ${selHora}:00 a ${selHora+1}:00 hs\n`+
     `👥 ${d.pax} participante${d.pax>1?'s':''}\n`+
     `💳 Total: $${d.total.toLocaleString('es-AR')}\n`+
-    `${d.promo?'🎁 Promo 2x1 aplicada\n':''}`+
+    `${d.promo==='2x1'?'🎁 Promo 2x1 aplicada\n':d.promo==='3x2'?'🎁 Promo 3x2 aplicada\n':''}`+
     `🎟️ Código: *${codigo}*\n\n`+
     `¡Nos vemos ahí! 🎮`;
   // Envía el comprobante al propio usuario (a sí mismo)
