@@ -2,8 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Juguemos Todos">
+<meta name="theme-color" content="#1a1a2e">
 <title>Juguemos Todos — Reservas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -21,12 +27,18 @@
   --success:#2ec4b6;
   --radius:16px;
 }
-body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
+:root{
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
 
 /* HERO */
 .hero{
   background: #1a1a2e;
-  padding:2rem 1.5rem 2.5rem;
+  padding: calc(2rem + var(--sat)) calc(1.5rem + var(--sar)) 2.5rem calc(1.5rem + var(--sal));
   text-align:center;
   position:relative;
   overflow:hidden;
@@ -75,7 +87,7 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .promo-strip span{font-family:'Quicksand',sans-serif;font-size:0.85rem;font-weight:600;opacity:0.9;}
 
 /* CONTAINER */
-.wrap{max-width:680px;margin:0 auto;padding:1.25rem 1rem 3rem;}
+.wrap{max-width:680px;margin:0 auto;padding:1.25rem calc(1rem + var(--sar)) calc(3rem + var(--sab)) calc(1rem + var(--sal));}
 
 /* STEPS */
 .stepper{display:flex;align-items:center;justify-content:center;gap:0;margin:1.25rem 0 1.5rem;}
@@ -131,6 +143,20 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   text-transform:uppercase;letter-spacing:.3px;
 }
 .sold-tag{display:block;font-size:0.6rem;color:var(--promo);font-weight:700;}
+
+/* AVISO CUPO COMPLETO */
+.alerta-cupo-lleno{
+  display:none;
+  background:#fff0f0;border:2px solid var(--accent3);
+  border-radius:12px;padding:14px 16px;margin-bottom:1rem;
+  font-size:0.9rem;color:var(--accent3);font-weight:700;
+  text-align:center;animation:pulseRed 1.5s ease-in-out infinite;
+}
+.alerta-cupo-lleno .alerta-ico{font-size:1.4rem;margin-right:8px;}
+@keyframes pulseRed{
+  0%,100%{box-shadow:0 0 0 0 rgba(230,57,70,0.3);}
+  50%{box-shadow:0 0 0 6px rgba(230,57,70,0);}
+}
 
 /* INFO 2x1 */
 .info-box{
@@ -217,13 +243,19 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 #modal-ya-reserva{
   display:none;position:fixed;inset:0;z-index:999;
   background:rgba(0,0,0,0.55);
-  align-items:center;justify-content:center;padding:1rem;
+  align-items:center;justify-content:center;
+  padding:calc(1rem + var(--sat)) calc(1rem + var(--sar)) calc(1rem + var(--sab)) calc(1rem + var(--sal));
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
 }
 #modal-ya-reserva.show{display:flex;}
 #modal-mp{
   display:none;position:fixed;inset:0;z-index:999;
   background:rgba(0,0,0,0.55);
-  align-items:center;justify-content:center;padding:1rem;
+  align-items:center;justify-content:center;
+  padding:calc(1rem + var(--sat)) calc(1rem + var(--sar)) calc(1rem + var(--sab)) calc(1rem + var(--sal));
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
 }
 #modal-mp.show{display:flex;}
 .modal-card{
@@ -327,6 +359,9 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   <div class="card" id="s4" style="display:none">
     <div class="card-head"><span class="ico">💳</span> Resumen y pago</div>
     <div class="resumen" id="resumen"></div>
+    <div class="alerta-cupo-lleno" id="alerta-cupo-lleno">
+      <span class="alerta-ico">⛔</span> ¡Lo sentimos! Este horario ya no tiene cupos disponibles. Por favor, seleccioná otro horario.
+    </div>
     <button class="btn btn-mp" id="btn-pagar" onclick="abrirModalMP()">
       Pagar con <span class="mp-badge">MP</span> Mercado Pago
     </button>
@@ -540,6 +575,7 @@ function irPaso4(){
        👥 ${r.participantes} participante${r.participantes>1?'s':''}<br>
        🎟️ Código: <strong>${r.codigo}</strong>`;
     document.getElementById('modal-ya-reserva').classList.add('show');
+    document.body.style.overflow='hidden';
     return;
   }
 
@@ -550,6 +586,7 @@ function irPaso4(){
 
 function cerrarModalYaReserva(){
   document.getElementById('modal-ya-reserva').classList.remove('show');
+  document.body.style.overflow='';
 }
 
 function renderResumen(nombre,tel,mail){
@@ -574,10 +611,42 @@ function renderResumen(nombre,tel,mail){
   if(promo3x2) h+=`<div class="res-row"><span class="res-k">Promo 3x2</span><span class="res-v promo">Pagás ${cobrado} <span class="promo-badge">3x2</span></span></div>`;
   h+=`<div class="res-row total"><span class="res-k">Total</span><span class="res-v big">$${total.toLocaleString('es-AR')}</span></div>`;
   document.getElementById('resumen').innerHTML=h;
+
+  // Verificar si el turno sigue disponible al llegar al paso 4
+  const k=selFecha+'-'+selHora;
+  const lib=CFG.cupos-(ocupacion[k]||0);
+  const lleno=(lib<=0);
+  const alertaEl=document.getElementById('alerta-cupo-lleno');
+  const btnPagar=document.getElementById('btn-pagar');
+  if(lleno){
+    alertaEl.style.display='block';
+    btnPagar.disabled=true;
+    btnPagar.style.opacity='0.4';
+    btnPagar.style.cursor='not-allowed';
+    btnPagar.onclick=null;
+  } else {
+    alertaEl.style.display='none';
+    btnPagar.disabled=false;
+    btnPagar.style.opacity='';
+    btnPagar.style.cursor='';
+    btnPagar.onclick=function(){abrirModalMP();};
+  }
 }
 
 // ===================== MODAL MP =====================
 async function abrirModalMP(){
+  // Verificación final de cupos antes de ir a pagar
+  const k=selFecha+'-'+selHora;
+  const lib=CFG.cupos-(ocupacion[k]||0);
+  if(lib<=0){
+    document.getElementById('alerta-cupo-lleno').style.display='block';
+    const btnPagar=document.getElementById('btn-pagar');
+    btnPagar.disabled=true;
+    btnPagar.style.opacity='0.4';
+    btnPagar.style.cursor='not-allowed';
+    btnPagar.onclick=null;
+    return;
+  }
   const d=window._r;
   const codigo=genCodigo();
   window._codigoPendiente=codigo;
@@ -597,6 +666,7 @@ async function abrirModalMP(){
     </div>`;
   document.getElementById('modal-mp-link').style.display='none';
   document.getElementById('modal-mp').classList.add('show');
+  document.body.style.overflow='hidden';
 
   try {
     const url = CFG.appsScriptURL
@@ -627,6 +697,7 @@ async function abrirModalMP(){
 function cerrarModal(){
   document.getElementById('modal-mp').classList.remove('show');
   document.getElementById('modal-mp-link').style.display='block';
+  document.body.style.overflow='';
 }
 
 // ===================== VERIFICAR PAGO CON MP via APPS SCRIPT =====================

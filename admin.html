@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Admin JT">
 <title>Admin — Juguemos Todos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -1594,9 +1596,9 @@ function renderListaManuales(){
           <div style="font-weight:700;color:var(--green);">${fmtMoney(c.monto)}</div>
           <div style="display:flex;gap:6px;">
             <button onclick="editarCobroManual(${c.id})"
-              style="background:none;border:1px solid var(--border);color:var(--cyan);font-size:.75rem;cursor:pointer;padding:2px 8px;border-radius:6px;">✏️ Editar</button>
+              style="background:none;border:1px solid var(--border);color:var(--cyan);font-size:.75rem;cursor:pointer;padding:10px 14px;border-radius:6px;min-height:44px;line-height:1;">✏️ Editar</button>
             <button onclick="eliminarCobroManual(${c.id})"
-              style="background:none;border:none;color:var(--red);font-size:.75rem;cursor:pointer;">✕</button>
+              style="background:none;border:1px solid var(--border);color:var(--red);font-size:.75rem;cursor:pointer;padding:10px 14px;border-radius:6px;min-height:44px;line-height:1;">✕</button>
           </div>
         </div>
       </div>`).join('')}
