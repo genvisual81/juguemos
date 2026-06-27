@@ -802,12 +802,20 @@ function toISOFecha(f){
 
 function calcularOcupacion(){
   ocupacion={};
+  // Reservas web (Mercado Pago)
   reservas.forEach(r=>{
     if(r.estado==='Pagado'||r.estado==='pagado'){
       const horaNum=parseInt(r.hora)||0;
       const k=toISOFecha(r.fecha)+'-'+horaNum;
       ocupacion[k]=(ocupacion[k]||0)+r.participantes;
     }
+  });
+  // Cobros manuales presenciales (sobreturnos incluidos)
+  cobrosManuales.forEach(c=>{
+    if(!c.fecha||!c.hora) return;
+    const horaNum=parseInt(c.hora)||0;
+    const k=toISOFecha(c.fecha)+'-'+horaNum;
+    ocupacion[k]=(ocupacion[k]||0)+(parseInt(c.cupos)||0);
   });
 }
 
@@ -1021,21 +1029,28 @@ function renderAgenda(){
     const horasHTML=[];
     for(let h=ADMIN_CFG.h0;h<=ADMIN_CFG.hF;h++){
       const ocp=ocupacion[fecha+'-'+h]||0;
-      const lib=ADMIN_CFG.cupos-ocp;
-      const pct=Math.round(ocp/ADMIN_CFG.cupos*100);
-      const color=pct>80?'var(--red)':pct>50?'var(--yellow)':'var(--green)';
+      const cuposBase=ADMIN_CFG.cupos;
+      const sobreturno=Math.max(0, ocp-cuposBase);
+      const lib=Math.max(0, cuposBase-ocp);
+      // La barra se calcula sobre cuposBase; se limita a 100% pero se marca rojo si hay sobreturno
+      const pct=Math.min(100, Math.round(ocp/cuposBase*100));
+      const color=sobreturno>0?'var(--red)':pct>80?'var(--red)':pct>50?'var(--yellow)':'var(--green)';
       const promo2x1=h===12||h===13;
       const promo3x2=h>=14&&h<=19;
       const resHora=reservas.filter(r=>toISOFecha(r.fecha)===fecha&&r.hora===h&&r.estado==='Pagado');
       const names=resHora.map(r=>`· ${r.nombre} (${r.participantes} cupos)`).join('  ');
+      // Etiqueta derecha: si hay sobreturno muestra "+N ST" en naranja; si no, libres/completo
+      const lblLib = sobreturno>0
+        ? `<span style="color:var(--accent);font-weight:700;">${ocp}/${cuposBase} <span style="font-size:.65rem;">(+${sobreturno} ST)</span></span>`
+        : lib>0 ? `${lib} libres` : 'COMPLETO';
+      const colorLib = sobreturno>0 ? 'var(--accent)' : lib>0 ? 'var(--green)' : 'var(--red)';
       horasHTML.push(`
         <div class="hora-row">
           <span class="hr-label">${h} hs${promo2x1?`<span class="hr-promo">2x1</span>`:promo3x2?`<span class="hr-promo">3x2</span>`:''}</span>
           <div class="prog-wrap"><div class="prog" style="width:${pct}%;background:${color};"></div></div>
-          <span class="hr-ocp">${ocp}/${ADMIN_CFG.cupos}</span>
-          <span class="hr-lib" style="color:${lib>0?'var(--green)':'var(--red)'};">${lib>0?lib+' libres':'COMPLETO'}</span>
+          <span class="hr-ocp">${ocp}/${cuposBase}</span>
+          <span class="hr-lib" style="color:${colorLib};">${lblLib}</span>
         </div>
-        ${''/* nombres omitidos en vista Ocupación */}
       `);
     }
     return `
@@ -1188,7 +1203,10 @@ function renderEstadisticas(){
     const dw=new Date(toISOFecha(r.fecha)+'T12:00:00').getDay();
     if(dwMap[dw]!==undefined) dsd[dwMap[dw]].v+=r.participantes;
   });
-  barChart('ch-dias',dsd,()=>'var(--accent)');
+  // forceMax=480: mínimo 480 cupos en el eje Y; se autoescala si hay sobreturnos que lo superen
+  const maxCuposDia = (ADMIN_CFG.hF - ADMIN_CFG.h0 + 1) * ADMIN_CFG.cupos;
+  const forceMaxDias = Math.max(480, maxCuposDia);
+  barChart('ch-dias',dsd,()=>'var(--accent)','',forceMaxDias);
 
   // Por hora (distribución)
   const distH=[];
