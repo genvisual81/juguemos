@@ -847,16 +847,17 @@ function enviarWA(){
   const stored=localStorage.getItem('jt_reserva_confirmada');
   const d=stored?JSON.parse(stored):(window._r||{});
   const codigo=window._codigo||d.codigo;
+  // Usar d.hora (guardado en localStorage) en vez de selHora (variable de módulo, null tras recarga)
+  const horaNum=parseInt(d.hora)||selHora||0;
   const msg=
     `✅ *Reserva confirmada - Juguemos Todos*\n\n`+
     `📅 ${d.fStr}\n`+
-    `🕐 ${selHora}:00 a ${selHora+1}:00 hs\n`+
+    `🕐 ${horaNum}:00 a ${horaNum+1}:00 hs\n`+
     `👥 ${d.pax} participante${d.pax>1?'s':''}\n`+
     `💳 Total: $${d.total.toLocaleString('es-AR')}\n`+
     `${d.promo==='2x1'?'🎁 Promo 2x1 aplicada\n':d.promo==='3x2'?'🎁 Promo 3x2 aplicada\n':''}`+
     `🎟️ Código: *${codigo}*\n\n`+
     `¡Nos vemos ahí! 🎮`;
-  // Envía el comprobante al propio usuario (a sí mismo)
   window.open('https://wa.me/'+CFG.whatsappNum+'?text='+encodeURIComponent(msg),'_blank');
 }
 
@@ -874,28 +875,62 @@ function stepDone(done,active){
 }
 
 // ===================== OCUPACIÓN DESDE SHEETS PUBLICADA =====================
-// (Opcional) Si publicás tu Google Sheet como CSV, podés cargar la ocupación real.
-// Ver instrucciones para activar esto.
 async function cargarOcupacionSheets(){
-  const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv'; // Ver instrucciones
+  const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv';
   if(SHEET_CSV_URL==='TU_SHEET_CSV_URL') return;
+
+  // Parser robusto: respeta campos entre comillas (igual al del admin)
+  function splitCSVRow(row){
+    const result=[];
+    let field='',inQ=false;
+    for(let i=0;i<row.length;i++){
+      const ch=row[i];
+      if(ch==='"'){
+        if(inQ&&row[i+1]==='"'){field+='"';i++;}
+        else inQ=!inQ;
+      } else if(ch===','&&!inQ){
+        result.push(field.trim());field='';
+      } else {
+        field+=ch;
+      }
+    }
+    result.push(field.trim());
+    return result;
+  }
+
   try{
     const r=await fetch(SHEET_CSV_URL);
     const txt=await r.text();
-    const rows=txt.split('\n').slice(1);
-    rows.forEach(row=>{
-      const cols=row.split(',');
-      if(cols.length<7) return;
-      const fecha=cols[4]?.trim();
-      const hora=parseInt(cols[5]);
-      const paxRow=parseInt(cols[6]);
-      const estado=cols[9]?.trim();
-      if(fecha&&hora&&paxRow&&estado==='Pagado'){
-        const k=fecha+'-'+hora;
-        ocupacion[k]=(ocupacion[k]||0)+paxRow;
+    const lines=txt.trim().split('\n');
+    if(lines.length<2) return;
+
+    // Detectar offset (timestamp con coma interna)
+    const primera=splitCSVRow(lines[1]||'');
+    const offset=(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(primera[0])&&/^\d{1,2}:\d{2}/.test(primera[1]))?1:0;
+
+    lines.slice(1).forEach(row=>{
+      const cols=splitCSVRow(row);
+      if(cols.length<8) return;
+      const o=offset;
+      // Índices correctos: col[5+o]=fecha, col[6+o]=hora, col[7+o]=participantes, col[10+o]=estado
+      const fecha=cols[5+o]?.trim();
+      const horaRaw=cols[6+o]?.trim()||'0';
+      const hora=parseInt(horaRaw.replace(':00:00','').replace(':00','').replace('hs','').trim())||0;
+      // Participantes: puede ser número o "Opción N"
+      const paxRaw=cols[7+o]?.trim()||'0';
+      const paxMatch=paxRaw.match(/(\d+)/);
+      const pax=paxMatch?parseInt(paxMatch[1]):0;
+      const estado=cols[10+o]?.trim();
+      if(fecha&&hora&&pax&&(estado==='Pagado'||estado==='pagado')){
+        // Normalizar fecha a ISO
+        let fechaISO=fecha;
+        const m=fecha.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if(m) fechaISO=m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+        const k=fechaISO+'-'+hora;
+        ocupacion[k]=(ocupacion[k]||0)+pax;
       }
     });
-  }catch(e){console.log('No se pudo cargar ocupación');}
+  }catch(e){console.log('No se pudo cargar ocupación',e);}
 }
 </script>
 </body>

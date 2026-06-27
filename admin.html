@@ -329,7 +329,7 @@ tr:hover td{background:rgba(244,131,31,0.03);}
       <div class="stat"><div class="stat-lbl">Reservas</div><div class="stat-val" id="st-total" style="color:var(--accent)">—</div><div class="stat-sub">confirmadas</div></div>
       <div class="stat"><div class="stat-lbl">Cupos reservados</div><div class="stat-val" id="st-pax" style="color:var(--cyan)">—</div><div class="stat-sub">total cupos</div></div>
       <div class="stat"><div class="stat-lbl">Recaudado</div><div class="stat-val" id="st-rec" style="color:var(--green)">—</div><div class="stat-sub">ARS confirmado</div></div>
-      <div class="stat"><div class="stat-lbl">Promo 2x1</div><div class="stat-val" id="st-promo" style="color:var(--promo)">—</div><div class="stat-sub">reservas con promo</div></div>
+      <div class="stat"><div class="stat-lbl">Con promo</div><div class="stat-val" id="st-promo" style="color:var(--promo)">—</div><div class="stat-sub">reservas 2x1 + 3x2</div></div>
       <div class="stat"><div class="stat-lbl">Ocupación</div><div class="stat-val" id="st-ocup" style="color:var(--yellow)">—</div><div class="stat-sub">% global</div></div>
     </div>
 
@@ -511,7 +511,7 @@ const ADMIN_CFG = {
   sheetCSV: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv',
   appsScriptURL: 'https://script.google.com/macros/s/AKfycbytgccdsoonYs0oG6KiVgasfiJM0DVJ6v78uuJKWR79K5nmejwNeHiObEtWGZ_nuhgi/exec',
 
-  precio: 17000,
+  precio: 20000,
   cupos: 60,
   h0: 12, hF: 19,
   fechaInicio: '2026-07-17',
@@ -748,9 +748,22 @@ function parsearCSV(txt){
     const o = offset;
     const timestampStr = cols[0] + (o ? ', '+cols[1] : '');
     const horaRaw = cols[6+o]||'0';
-    const horaNum = parseInt(horaRaw.replace(':00','').replace('hs','').trim())||0;
-    const totalRaw = parseInt(cols[8+o])||0;
-    const totalFinal = totalRaw < 50 ? totalRaw * 100 : totalRaw;
+    const horaNum = parseInt(horaRaw.replace(':00','').replace(':00:00','').replace('hs','').trim())||0;
+
+    // Participantes: puede venir como número ("2") o como texto de opción ("Opción 2", "Opcion 2")
+    const paxRaw = cols[7+o]||'0';
+    const paxMatch = paxRaw.match(/(\d+)/);
+    const participantes = paxMatch ? parseInt(paxMatch[1]) : 0;
+
+    // Total: viene en pesos enteros desde el Form (ej: 20000).
+    // Si viene sin punto de miles y es < 1000, es probable que sea un valor antiguo en centenas → multiplicar.
+    // Si viene como 0 o vacío, calcular desde participantes y precio configurado.
+    const totalRaw = parseInt((cols[8+o]||'').replace(/\./g,'').replace(/,/g,'')) || 0;
+    const totalFinal = totalRaw >= 1000
+      ? totalRaw
+      : totalRaw > 0
+        ? totalRaw * 1000
+        : 0;
 
     return {
       timestamp:    timestampStr,
@@ -760,7 +773,7 @@ function parsearCSV(txt){
       mail:         cols[4+o]||'',
       fecha:        cols[5+o]||'',
       hora:         horaNum,
-      participantes:parseInt(cols[7+o])||0,
+      participantes,
       total:        totalFinal,
       promo:        cols[9+o]||'No',
       estado:       cols[10+o]||'Pagado',
@@ -819,7 +832,7 @@ function actualizarStats(){
 
   const totalPax   = pag.reduce((s,r)=>s+r.participantes,0);
   const totalMonto = pag.reduce((s,r)=>s+r.total,0);
-  const conPromo   = pag.filter(r=>r.promo==='2x1').length;
+  const conPromo   = pag.filter(r=>r.promo==='2x1'||r.promo==='3x2').length;
   const fechas     = [...new Set(pag.map(r=>r.fecha))];
   const capTotal   = (ADMIN_CFG.hF-ADMIN_CFG.h0+1)*fechas.length*ADMIN_CFG.cupos;
   const ocup       = capTotal ? Math.round(totalPax/capTotal*100) : 0;
@@ -1011,12 +1024,13 @@ function renderAgenda(){
       const lib=ADMIN_CFG.cupos-ocp;
       const pct=Math.round(ocp/ADMIN_CFG.cupos*100);
       const color=pct>80?'var(--red)':pct>50?'var(--yellow)':'var(--green)';
-      const promo=h===12||h===13;
+      const promo2x1=h===12||h===13;
+      const promo3x2=h>=14&&h<=19;
       const resHora=reservas.filter(r=>toISOFecha(r.fecha)===fecha&&r.hora===h&&r.estado==='Pagado');
       const names=resHora.map(r=>`· ${r.nombre} (${r.participantes} cupos)`).join('  ');
       horasHTML.push(`
         <div class="hora-row">
-          <span class="hr-label">${h} hs${promo?`<span class="hr-promo">2x1</span>`:''}</span>
+          <span class="hr-label">${h} hs${promo2x1?`<span class="hr-promo">2x1</span>`:promo3x2?`<span class="hr-promo">3x2</span>`:''}</span>
           <div class="prog-wrap"><div class="prog" style="width:${pct}%;background:${color};"></div></div>
           <span class="hr-ocp">${ocp}/${ADMIN_CFG.cupos}</span>
           <span class="hr-lib" style="color:${lib>0?'var(--green)':'var(--red)'};">${lib>0?lib+' libres':'COMPLETO'}</span>
@@ -1143,7 +1157,9 @@ function renderEstadisticas(){
   const pag=reservas.filter(r=>r.estado==='Pagado'&&enRango(r.fecha, desde, hasta));
   const total=pag.reduce((s,r)=>s+r.total,0);
   const totalPax=pag.reduce((s,r)=>s+r.participantes,0);
-  const conPromo=pag.filter(r=>r.promo==='2x1').length;
+  const conPromo=pag.filter(r=>r.promo==='2x1'||r.promo==='3x2').length;
+  const con2x1=pag.filter(r=>r.promo==='2x1').length;
+  const con3x2=pag.filter(r=>r.promo==='3x2').length;
   const ticketProm=pag.length?Math.round(total/pag.length):0;
   const fechas=[...new Set(pag.map(r=>r.fecha))];
   const capTotal=(ADMIN_CFG.hF-ADMIN_CFG.h0+1)*fechas.length*ADMIN_CFG.cupos;
@@ -1154,7 +1170,8 @@ function renderEstadisticas(){
     {l:'Recaudación total',v:'$'+total.toLocaleString('es-AR'),c:'var(--green)'},
     {l:'Ticket promedio',v:'$'+ticketProm.toLocaleString('es-AR'),c:'var(--cyan)'},
     {l:'Ocupación global',v:ocup+'%',c:'var(--yellow)'},
-    {l:'Reservas con promo 2x1',v:conPromo,c:'var(--promo)'},
+    {l:'Reservas con promo 2x1',v:con2x1,c:'var(--promo)'},
+    {l:'Reservas con promo 3x2',v:con3x2,c:'var(--promo)'},
   ].map(x=>`
     <div class="recaud-card">
       <div class="rc-lbl">${x.l}</div>
@@ -1196,9 +1213,9 @@ function cambiarTab(name, el){
   el.classList.add('active');
   el.setAttribute('aria-selected','true');
   el.setAttribute('tabindex','0');
-  // Stats globales: ocultar en Caja y en Resumen (que tiene sus propias stats)
+  // Stats globales: visibles en Reservas y Agenda; ocultas en Caja y Resumen (que tienen sus propias stats)
   const stats = document.querySelector('.stats');
-  if(stats) stats.style.display = (name==='caja'||name==='resumen'||name==='reservas'||name==='agenda') ? 'none' : 'grid';
+  if(stats) stats.style.display = (name==='caja'||name==='resumen') ? 'none' : 'grid';
   // Acciones por tab
   if(name==='resumen') renderEstadisticas();
   if(name==='caja'){
@@ -1317,7 +1334,7 @@ function renderCaja(){
         <div style="font-size:.75rem;color:var(--muted);">
           ${h.reservas.map(r=>
             `· ${r.nombre} — ${r.participantes} cupos
-             <span class="caja-badge cb-online">${r.promo==='2x1'?'2x1':'Normal'}</span>`
+             <span class="caja-badge cb-online">${r.promo==='2x1'?'2x1':r.promo==='3x2'?'3x2':'Normal'}</span>`
           ).join('<br>')}
         </div>
       </div>`).join('');
