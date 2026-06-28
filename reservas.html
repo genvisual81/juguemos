@@ -220,6 +220,16 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .spinner{width:44px;height:44px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem;}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* OVERLAY de carga inicial */
+#init-overlay{
+  display:flex;position:fixed;inset:0;z-index:9999;
+  background:rgba(240,250,250,0.92);
+  flex-direction:column;align-items:center;justify-content:center;
+  gap:1rem;
+}
+#init-overlay .spinner{width:50px;height:50px;border-width:5px;}
+#init-overlay p{color:var(--muted);font-size:.95rem;font-weight:600;}
+
 /* ÉXITO */
 #exito{display:none;text-align:center;padding:1.5rem 1rem 3rem;}
 .exito-ico{font-size:4rem;animation:pop .5s ease;display:block;margin-bottom:.75rem;}
@@ -277,6 +287,12 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 </style>
 </head>
 <body>
+
+<!-- OVERLAY CARGA INICIAL -->
+<div id="init-overlay">
+  <div class="spinner"></div>
+  <p>Cargando disponibilidad…</p>
+</div>
 
 <!-- HERO -->
 <div class="hero">
@@ -478,6 +494,7 @@ window.onload = () => {
   const status = params.get('status') || params.get('collection_status');
   if (payId) {
     // MP redirigió de vuelta — verificar pago real
+    document.getElementById('init-overlay').style.display='none';
     verificarPagoMP(payId, status);
   } else {
     generarFechas();
@@ -902,7 +919,7 @@ async function cargarOcupacionSheets(){
     const r=await fetch(SHEET_CSV_URL);
     const txt=await r.text();
     const lines=txt.trim().split('\n');
-    if(lines.length<2) return;
+    if(lines.length<2){ document.getElementById('init-overlay').style.display='none'; return; }
 
     // Detectar offset (timestamp con coma interna)
     const primera=splitCSVRow(lines[1]||'');
@@ -931,6 +948,7 @@ async function cargarOcupacionSheets(){
       }
     });
   }catch(e){console.log('No se pudo cargar ocupación',e);}
+  document.getElementById('init-overlay').style.display='none';
 }
 </script>
 </body>

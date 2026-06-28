@@ -1512,10 +1512,11 @@ function guardarCobroManual(){
     if(ADMIN_CFG.appsScriptURL){
       const url = ADMIN_CFG.appsScriptURL +
         '?action=editarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobroEditado));
-      fetch(url).catch(()=>{ showToast('⚠ Cambios guardados localmente. Error al sincronizar.', 'err', 5000); });
+      showToast('⟳ Sincronizando…', 'info', 8000);
+      fetch(url)
+        .then(()=>{ showToast('✓ Cobro de ' + nombre + ' sincronizado', 'ok'); })
+        .catch(()=>{ showToast('⚠ Cambios guardados localmente. Error al sincronizar.', 'err', 5000); });
     }
-
-    showToast('✓ Cobro de ' + nombre + ' actualizado', 'ok');
 
   } else {
     // ── MODO CREACIÓN ─────────────────────────────
@@ -1532,11 +1533,13 @@ function guardarCobroManual(){
     if(ADMIN_CFG.appsScriptURL){
       const url = ADMIN_CFG.appsScriptURL +
         '?action=guardarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobro));
-      fetch(url).catch(()=>{ showToast('⚠ Cobro guardado localmente. Error al sincronizar.', 'err', 5000); });
+      showToast('⟳ Sincronizando…', 'info', 8000);
+      fetch(url)
+        .then(()=>{ showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok'); })
+        .catch(()=>{ showToast('⚠ Cobro guardado localmente. Error al sincronizar.', 'err', 5000); });
+    } else {
+      showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok');
     }
-
-    cobrosManuales.push(cobro);
-    showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok');
   }
 
   _resetFormCobro();
