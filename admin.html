@@ -514,7 +514,7 @@ const ADMIN_CFG = {
   precio: 20000,
   cupos: 60,
   h0: 12, hF: 19,
-  fechaInicio: '2026-07-17',
+  fechaInicio: '2026-07-18',
   fechaFin:    '2026-08-02',
 };
 
@@ -1273,7 +1273,7 @@ function setResumenHoy(){
 }
 
 function setCajaEvento(){
-  document.getElementById('caja-desde').value = ADMIN_CFG.fechaInicio||'2026-07-17';
+  document.getElementById('caja-desde').value = ADMIN_CFG.fechaInicio||'2026-07-18';
   document.getElementById('caja-hasta').value = ADMIN_CFG.fechaFin||'2026-08-02';
   renderCaja();
 }
@@ -1285,7 +1285,7 @@ function getFiltroResumen(){
 }
 
 function setResumenEvento(){
-  document.getElementById('res-desde').value = ADMIN_CFG.fechaInicio||'2026-07-17';
+  document.getElementById('res-desde').value = ADMIN_CFG.fechaInicio||'2026-07-18';
   document.getElementById('res-hasta').value = ADMIN_CFG.fechaFin||'2026-08-02';
   renderEstadisticas();
 }
