@@ -570,6 +570,14 @@ function chgPax(d){
   if(n<1||n>lib) return;
   pax=n;
   document.getElementById('pax-num').textContent=pax;
+  // Si el paso 4 ya está visible, actualizar el resumen automáticamente
+  const s4=document.getElementById('s4');
+  if(s4 && s4.style.display!=='none'){
+    const nombre=document.getElementById('inp-nombre').value.trim();
+    const tel=document.getElementById('inp-tel').value.trim();
+    const mail=document.getElementById('inp-mail').value.trim();
+    if(nombre&&tel&&mail) renderResumen(nombre,tel,mail);
+  }
 }
 
 // ===================== PASO 4 =====================

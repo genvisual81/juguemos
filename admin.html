@@ -1496,13 +1496,14 @@ function guardarCobroManual(){
     if(idx === -1){ showToast('Error: cobro no encontrado.', 'err'); return; }
 
     const cobroOriginal = cobrosManuales[idx];
+    const obsEdicion = cobroOriginal.obs || '';
     const cobroEditado  = {
       ...cobroOriginal,
       nombre, tel,
       fecha:  fechaCobro,
       hora:   horaFinal,
       cupos:  parseInt(cupos),
-      medio, monto: parseFloat(monto), obs,
+      medio, monto: parseFloat(monto), obs: obsEdicion,
       editado: ahora.toLocaleString('es-AR')
     };
 
@@ -1529,6 +1530,9 @@ function guardarCobroManual(){
       tipo: 'Manual', obs: '',
       timestamp: ahora.toLocaleString('es-AR')
     };
+
+    // Agregar al array local inmediatamente para que aparezca sin recargar
+    cobrosManuales.push(cobro);
 
     if(ADMIN_CFG.appsScriptURL){
       const url = ADMIN_CFG.appsScriptURL +
