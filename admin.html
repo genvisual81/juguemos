@@ -336,7 +336,7 @@ tr:hover td{background:rgba(244,131,31,0.03);}
   <div class="main">
 
     <!-- STATS GLOBALES -->
-    <div class="stats">
+    <div class="stats" style="display:none">
       <div class="stat"><div class="stat-lbl">Reservas</div><div class="stat-val" id="st-total" style="color:var(--accent)">—</div><div class="stat-sub">confirmadas</div></div>
       <div class="stat"><div class="stat-lbl">Cupos reservados</div><div class="stat-val" id="st-pax" style="color:var(--cyan)">—</div><div class="stat-sub">total cupos</div></div>
       <div class="stat"><div class="stat-lbl">Recaudado</div><div class="stat-val" id="st-rec" style="color:var(--green)">—</div><div class="stat-sub">ARS confirmado</div></div>
@@ -1249,9 +1249,9 @@ function cambiarTab(name, el){
   el.classList.add('active');
   el.setAttribute('aria-selected','true');
   el.setAttribute('tabindex','0');
-  // Stats globales: visibles en Reservas y Agenda; ocultas en Caja y Resumen (que tienen sus propias stats)
+  // Stats globales: ocultas en todas las solapas (Reservas, Caja, Ocupación y Resumen tienen sus propias stats o no las requieren)
   const stats = document.querySelector('.stats');
-  if(stats) stats.style.display = (name==='caja'||name==='resumen') ? 'none' : 'grid';
+  if(stats) stats.style.display = 'none';
   // Acciones por tab
   if(name==='resumen') renderEstadisticas();
   if(name==='caja'){
