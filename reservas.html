@@ -317,11 +317,9 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   <h1>¡<span>Juguemos</span> Todos!</h1>
   <p class="hero-sub">Vacaciones de Invierno 2026</p>
   <div class="hero-chips">
-    <span class="chip">📅 Vie 17 Jul → Vie 31 Jul</span>
+    <span class="chip">📅 Sáb 18 Jul → Dom 2 Ago</span>
     <span class="chip">🕐 12hs a 19hs</span>
     <span class="chip">👥 60 cupos por hora</span>
-    <span class="chip hot">🎁 Promo 2x1 en 12 y 13hs</span>
-    <span class="chip hot" style="background:rgba(46,196,182,0.25);border-color:rgba(46,196,182,0.5);color:#1a9e94;">🎁 Promo 3x2 de 14 a 18hs</span>
   </div>
 </div>
 
@@ -468,7 +466,11 @@ const CFG = {
 
   // Fechas puestas en modo "a confirmar" (no reservables por ahora).
   // Formato YYYY-MM-DD. Para reactivar una fecha, borrala de esta lista.
-  fechasInactivas: ['2026-08-01','2026-08-02'],
+  fechasInactivas: [],
+
+  // Fechas eliminadas por completo del calendario (no se muestran).
+  // Formato YYYY-MM-DD.
+  fechasExcluidas: ['2026-07-19','2026-08-01'],
 
   // Google Apps Script URL (ver instrucciones)
   appsScriptURL: 'https://script.google.com/macros/s/AKfycbwcLCpLLUgyU9T-0CPPkAwdrsz8ntHje5brRQD5AQtS9PBK4pn7NJVyhNYHQoQtKdHg/exec',
@@ -530,8 +532,9 @@ function generarFechas(){
   let c=new Date(CFG.fechaInicio);
   while(c<=CFG.fechaFin){
     const dw=c.getDay();
-    const btn=document.createElement('button');
     const fk=c.toISOString().split('T')[0];
+    if((CFG.fechasExcluidas||[]).includes(fk)){ c.setDate(c.getDate()+1); continue; }
+    const btn=document.createElement('button');
     const esInactiva=(CFG.fechasInactivas||[]).includes(fk);
     btn.className='d-btn'+(c<hoy?' dis':'')+(esInactiva?' confirmar':'');
     btn.dataset.f=fk;
