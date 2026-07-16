@@ -118,6 +118,22 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .d-num{font-family:'Fredoka One',cursive;font-size:1.25rem;color:var(--accent);}.d-btn.sel .d-num{color:#0d6b63;}.d-btn.sel .d-dia,.d-btn.sel .d-mes{color:#0d6b63;}
 .d-mes{font-size:0.6rem;color:var(--muted);}
 
+/* FECHA A CONFIRMAR */
+.d-btn.confirmar{
+  background:#fff9ec;border:1.5px dashed var(--yellow);
+  cursor:not-allowed;pointer-events:none;opacity:1;
+}
+.d-btn.confirmar .d-num{color:#c98a00;}
+.d-btn.confirmar .d-dia{color:#c98a00;}
+.d-confirmar-tag{
+  display:inline-block;margin-top:3px;
+  background:var(--yellow);color:#7a4a00;
+  font-size:0.5rem;font-weight:700;
+  padding:2px 5px;border-radius:6px;
+  text-transform:uppercase;letter-spacing:.2px;
+  white-space:nowrap;
+}
+
 /* HOUR GRID */
 .hour-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:8px;}
 .h-btn{
@@ -301,11 +317,11 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   <h1>¡<span>Juguemos</span> Todos!</h1>
   <p class="hero-sub">Vacaciones de Invierno 2026</p>
   <div class="hero-chips">
-    <span class="chip">📅 Vie 17 Jul → Dom 2 Ago</span>
-    <span class="chip">🕐 12hs a 20hs</span>
+    <span class="chip">📅 Vie 17 Jul → Vie 31 Jul</span>
+    <span class="chip">🕐 12hs a 19hs</span>
     <span class="chip">👥 60 cupos por hora</span>
-    <span class="chip hot">🎁 Promo 2x1 de 12 a 14hs</span>
-    <span class="chip hot" style="background:rgba(46,196,182,0.25);border-color:rgba(46,196,182,0.5);color:#1a9e94;">🎁 Promo 3x2 de 14 a 19hs</span>
+    <span class="chip hot">🎁 Promo 2x1 en 12 y 13hs</span>
+    <span class="chip hot" style="background:rgba(46,196,182,0.25);border-color:rgba(46,196,182,0.5);color:#1a9e94;">🎁 Promo 3x2 de 14 a 18hs</span>
   </div>
 </div>
 
@@ -315,7 +331,7 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   <span>· Pagás por 1, entran 2</span>
 </div>
 <div class="promo-strip" style="background:var(--accent2);">
-  🎁 PROMO 3x2 — Horarios 14:00 a 19:00 hs
+  🎁 PROMO 3x2 — Horarios 14:00 a 18:00 hs
   <span>· Pagás por 2, entran 3</span>
 </div>
 
@@ -343,7 +359,7 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
     <div class="card-head"><span class="ico">🕐</span> Elegí el horario</div>
     <div class="info-box">🎁 Los turnos de <strong>12:00 y 13:00 hs</strong> tienen Promo 2x1 — pagás por la mitad de los participantes.</div>
     <div class="info-box" style="background:#f0fafa;border:1px solid rgba(46,196,182,0.25);color:#1a7a72;margin-top:8px;display:block;">
-      🎁 Los turnos de <strong>14:00 a 19:00 hs</strong> tienen Promo 3x2 — pagás por 2 de cada 3 participantes.
+      🎁 Los turnos de <strong>14:00 a 18:00 hs</strong> tienen Promo 3x2 — pagás por 2 de cada 3 participantes.
     </div>
     <div class="info-box" style="background:#f0fafa;border:1px solid rgba(46,196,182,0.25);color:#1a7a72;margin-top:8px;display:block;">
       📌 Solo podés reservar <strong>un turno horario por vez</strong>.<br>
@@ -448,7 +464,11 @@ const CFG = {
   cupos: 60,
   fechaInicio: new Date(2026,6,18),  // 18 julio
   fechaFin:    new Date(2026,7,2),   // 2 agosto
-  h0: 12, hF: 19,
+  h0: 12, hF: 18,
+
+  // Fechas puestas en modo "a confirmar" (no reservables por ahora).
+  // Formato YYYY-MM-DD. Para reactivar una fecha, borrala de esta lista.
+  fechasInactivas: ['2026-08-01','2026-08-02'],
 
   // Google Apps Script URL (ver instrucciones)
   appsScriptURL: 'https://script.google.com/macros/s/AKfycbwcLCpLLUgyU9T-0CPPkAwdrsz8ntHje5brRQD5AQtS9PBK4pn7NJVyhNYHQoQtKdHg/exec',
@@ -511,11 +531,13 @@ function generarFechas(){
   while(c<=CFG.fechaFin){
     const dw=c.getDay();
     const btn=document.createElement('button');
-    btn.className='d-btn'+(c<hoy?' dis':'');
     const fk=c.toISOString().split('T')[0];
+    const esInactiva=(CFG.fechasInactivas||[]).includes(fk);
+    btn.className='d-btn'+(c<hoy?' dis':'')+(esInactiva?' confirmar':'');
     btn.dataset.f=fk;
-    btn.innerHTML=`<div class="d-dia">${DIAS[dw]}</div><div class="d-num">${c.getDate()}</div><div class="d-mes">${MESES[c.getMonth()]}</div>`;
-    btn.addEventListener('click',()=>selDate(fk,btn));
+    btn.innerHTML=`<div class="d-dia">${DIAS[dw]}</div><div class="d-num">${c.getDate()}</div>`+
+      (esInactiva?`<div class="d-confirmar-tag">A confirmar</div>`:`<div class="d-mes">${MESES[c.getMonth()]}</div>`);
+    if(!esInactiva) btn.addEventListener('click',()=>selDate(fk,btn));
     g.appendChild(btn);
     c.setDate(c.getDate()+1);
   }
