@@ -225,8 +225,6 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 .btn:active{transform:scale(.98);}
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
 .btn-next{background:var(--accent);color:#fff;}
-.btn-mp{background:#009ee3;color:#fff;}
-.mp-badge{background:#fff;color:#009ee3;font-family:'Quicksand',sans-serif;font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:6px;}
 .btn-wa{background:#25d366;color:#fff;margin-top:.75rem;}
 
 .seguro{text-align:center;font-size:.78rem;color:var(--muted);margin-top:.6rem;}
@@ -275,15 +273,6 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   overscroll-behavior:contain;
 }
 #modal-ya-reserva.show{display:flex;}
-#modal-mp{
-  display:none;position:fixed;inset:0;z-index:999;
-  background:rgba(0,0,0,0.55);
-  align-items:center;justify-content:center;
-  padding:calc(1rem + var(--sat)) calc(1rem + var(--sar)) calc(1rem + var(--sab)) calc(1rem + var(--sal));
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior:contain;
-}
-#modal-mp.show{display:flex;}
 .modal-card{
   background:#fff;border-radius:20px;padding:1.5rem;
   max-width:420px;width:100%;
@@ -392,10 +381,15 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
     <div class="alerta-cupo-lleno" id="alerta-cupo-lleno">
       <span class="alerta-ico">⛔</span> ¡Lo sentimos! Este horario ya no tiene cupos disponibles. Por favor, seleccioná otro horario.
     </div>
-    <button class="btn btn-mp" id="btn-pagar" onclick="abrirModalMP()">
-      Pagar con <span class="mp-badge">MP</span> Mercado Pago
+    <div class="info-box" id="datos-transferencia" style="background:#f0fafa;border-color:var(--border);color:var(--text);">
+      <strong>💸 Transferí el total a:</strong><br>
+      Alias: <strong id="tr-alias"></strong><br>
+      Titular: <strong id="tr-titular"></strong>
+    </div>
+    <button class="btn btn-wa" id="btn-pagar" onclick="confirmarReserva()">
+      📱 Ya transferí, enviar comprobante por WhatsApp
     </button>
-    <div class="seguro">🔒 Pago seguro · Tu reserva se confirma tras el pago</div>
+    <div class="seguro">🔒 Tu cupo queda reservado como <strong>pendiente</strong> hasta que el organizador confirme tu comprobante</div>
   </div>
 
   <!-- LOADING -->
@@ -415,17 +409,17 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
       <div class="codigo-val" id="exito-codigo"></div>
     </div>
     <div class="nota-conf">
-      Recibirás la confirmación en tu email (revisá SPAM).<br>
+      Tu reserva quedó <strong>pendiente de confirmación</strong>. Ya te abrimos WhatsApp para que envíes el comprobante de la transferencia.<br>
+      El organizador va a confirmar tu cupo apenas lo reciba y valide.<br>
       <strong>Guardá este código</strong> — lo vas a necesitar al ingresar.
     </div>
     <button class="btn btn-wa" id="btn-wa" onclick="enviarWA()">
-      📱 Enviarme comprobante por WhatsApp
+      📱 Reenviar comprobante por WhatsApp
     </button>
   </div>
 
 </div><!-- /wrap -->
 
-<!-- MODAL MP -->
 <!-- MODAL: YA TIENE RESERVA -->
 <div id="modal-ya-reserva">
   <div class="modal-card" style="text-align:center;">
@@ -440,17 +434,6 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
       <div id="modal-reserva-existente" style="margin-top:1rem;background:#f0fafa;border:1px solid rgba(46,196,182,0.3);border-radius:10px;padding:12px 14px;font-size:.88rem;"></div>
     </div>
     <button class="modal-link" style="margin-top:1rem;text-decoration:none;display:block;" onclick="cerrarModalYaReserva()">Entendido</button>
-  </div>
-</div>
-
-<div id="modal-mp">
-  <div class="modal-card">
-    <div class="modal-title">💳 Ir a pagar</div>
-    <div class="modal-desc" id="modal-desc">Vas a ser redirigido a Mercado Pago para completar el pago.</div>
-    <a class="modal-link" id="modal-mp-link" href="#" target="_blank" onclick="despuesDePagar()">
-      Ir a Mercado Pago →
-    </a>
-    <button class="modal-cancel" onclick="cerrarModal()">Cancelar</button>
   </div>
 </div>
 
@@ -493,14 +476,18 @@ const CFG = {
     estado:       'entry.81383143',    // Estado
   },
 
-  // Link de pago de Mercado Pago (generado desde tu panel MP)
-  // Podés tener un solo link genérico, o uno por turno.
-  // Ver instrucciones para generarlo.
-  mpLink: 'https://mpago.la/1iXh2in',
+  // Datos para transferencia / pago (reemplazá con tus datos reales)
+  // El comprobante de este pago se envía por WhatsApp y el organizador
+  // confirma manualmente la reserva marcándola como "Pagado" en la planilla.
+  transferencia: {
+    alias: 'juguemostodos',         // Alias de la cuenta
+    cbu: '0000000000000000000000', // ⚠️ Completar con tu CBU real
+    titular: 'Jorge Sabbatini',    // Titular de la cuenta
+  },
 
   // Tu número de WhatsApp (sin +, con código de país)
   // Ej: 5492914123456
-  whatsappNum: '5492914189133',
+  whatsappNum: '5492915770582',
 };
 
 const DIAS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -511,17 +498,8 @@ let ocupacion={}; // cargado desde Google Sheets publicada (opcional)
 
 // ===================== INIT =====================
 window.onload = () => {
-  const params = new URLSearchParams(window.location.search);
-  const payId  = params.get('payment_id') || params.get('collection_id');
-  const status = params.get('status') || params.get('collection_status');
-  if (payId) {
-    // MP redirigió de vuelta — verificar pago real
-    document.getElementById('init-overlay').style.display='none';
-    verificarPagoMP(payId, status);
-  } else {
-    generarFechas();
-    cargarOcupacionSheets();
-  }
+  generarFechas();
+  cargarOcupacionSheets();
 };
 
 // ===================== FECHAS =====================
@@ -614,10 +592,13 @@ function irPaso4(){
   if(!mail.includes('@')){alert('Ingresá un email válido.');return;}
   if(!selFecha||selHora===null){alert('Elegí fecha y horario primero.');return;}
 
-  // Verificar si ya tiene una reserva confirmada
+  // Verificar si ya tiene una reserva confirmada para el MISMO día y MISMO horario
   const reservaExistente = localStorage.getItem('jt_reserva_confirmada');
   if(reservaExistente){
     const r = JSON.parse(reservaExistente);
+    const mismoDia = r.fecha === selFecha;
+    const mismoHorario = parseInt(r.hora) === parseInt(selHora);
+    if(mismoDia && mismoHorario){
     document.getElementById('modal-reserva-existente').innerHTML=
       `<strong>Tu reserva actual:</strong><br>
        📅 ${r.fStr || r.fecha}<br>
@@ -627,6 +608,7 @@ function irPaso4(){
     document.getElementById('modal-ya-reserva').classList.add('show');
     document.body.style.overflow='hidden';
     return;
+    }
   }
 
   renderResumen(nombre,tel,mail);
@@ -662,6 +644,9 @@ function renderResumen(nombre,tel,mail){
   h+=`<div class="res-row total"><span class="res-k">Total</span><span class="res-v big">$${total.toLocaleString('es-AR')}</span></div>`;
   document.getElementById('resumen').innerHTML=h;
 
+  document.getElementById('tr-alias').textContent=CFG.transferencia.alias;
+  document.getElementById('tr-titular').textContent=CFG.transferencia.titular;
+
   // Verificar si el turno sigue disponible al llegar al paso 4
   const k=selFecha+'-'+selHora;
   const lib=CFG.cupos-(ocupacion[k]||0);
@@ -679,13 +664,13 @@ function renderResumen(nombre,tel,mail){
     btnPagar.disabled=false;
     btnPagar.style.opacity='';
     btnPagar.style.cursor='';
-    btnPagar.onclick=function(){abrirModalMP();};
+    btnPagar.onclick=function(){confirmarReserva();};
   }
 }
 
-// ===================== MODAL MP =====================
-async function abrirModalMP(){
-  // Verificación final de cupos antes de ir a pagar
+// ===================== CONFIRMAR RESERVA (TRANSFERENCIA + WHATSAPP) =====================
+async function confirmarReserva(){
+  // Verificación final de cupos antes de confirmar
   const k=selFecha+'-'+selHora;
   const lib=CFG.cupos-(ocupacion[k]||0);
   if(lib<=0){
@@ -699,140 +684,27 @@ async function abrirModalMP(){
   }
   const d=window._r;
   const codigo=genCodigo();
-  window._codigoPendiente=codigo;
 
   const datosReserva = {
     codigo, nombre:d.nombre, tel:d.tel, mail:d.mail,
     fecha:selFecha, hora:selHora, participantes:d.pax,
-    total:d.total, promo:d.promo2x1?'2x1':d.promo3x2?'3x2':false, fStr:d.fStr, pax:d.pax
+    total:d.total, promo:d.promo2x1?'2x1':d.promo3x2?'3x2':false, fStr:d.fStr, pax:d.pax,
+    estado:'Pendiente de pago'
   };
-  localStorage.setItem('jt_reserva', JSON.stringify(datosReserva));
 
-  // Mostrar spinner mientras crea preferencia
-  document.getElementById('modal-desc').innerHTML=`
-    <div style="text-align:center;padding:1rem 0;">
-      <div class="spinner" style="margin:0 auto 1rem;"></div>
-      <p style="color:var(--muted);font-size:.9rem;">Preparando tu pago...</p>
-    </div>`;
-  document.getElementById('modal-mp-link').style.display='none';
-  document.getElementById('modal-mp').classList.add('show');
-  document.body.style.overflow='hidden';
-
-  try {
-    const url = CFG.appsScriptURL
-      + '?action=crearPreferencia'
-      + '&datos=' + encodeURIComponent(JSON.stringify(datosReserva))
-      + '&returnURL=' + encodeURIComponent('https://genvisual81.github.io/juguemos/reservas.html');
-
-    const r    = await fetch(url);
-    const resp = await r.json();
-
-    if (resp.ok && resp.init_point) {
-      document.getElementById('modal-desc').innerHTML=
-        `Vas a pagar <strong>$${d.total.toLocaleString('es-AR')}</strong> por ${d.pax} participante${d.pax>1?'s':''} el <strong>${d.fStr}</strong> a las <strong>${selHora}:00 hs</strong>.<br><br>Al completar el pago vas a volver automáticamente con tu reserva confirmada.`;
-      const btn=document.getElementById('modal-mp-link');
-      btn.href=resp.init_point;
-      btn.style.display='block';
-    } else {
-      throw new Error(resp.error||'No se pudo crear el pago');
-    }
-  } catch(err) {
-    document.getElementById('modal-desc').innerHTML=`
-      <p style="color:var(--accent3);font-weight:700;">Error al conectar con Mercado Pago</p>
-      <p style="color:var(--muted);font-size:.85rem;margin-top:.5rem;">${err.message}</p>`;
-    document.getElementById('modal-mp-link').style.display='none';
-  }
-}
-
-function cerrarModal(){
-  document.getElementById('modal-mp').classList.remove('show');
-  document.getElementById('modal-mp-link').style.display='block';
-  document.body.style.overflow='';
-}
-
-// ===================== VERIFICAR PAGO CON MP via APPS SCRIPT =====================
-async function verificarPagoMP(paymentId, status) {
   mostrarEspera();
 
-  // Recuperar datos guardados del localStorage
-  const stored = localStorage.getItem('jt_reserva');
-  const datos  = stored ? JSON.parse(stored) : null;
-
-  // Si MP dice que no fue aprobado, mostrar error
-  if (status && status !== 'approved' && status !== '') {
-    mostrarErrorPago('El pago no fue aprobado (estado: ' + status + '). Podés intentarlo de nuevo.');
-    return;
-  }
-
-  // Si no hay datos guardados pero hay payment_id aprobado, igual mostramos éxito básico
-  if (!datos) {
-    const codigoFallback = 'JT' + paymentId.toString().slice(-6).toUpperCase();
-    mostrarExitoBasico(codigoFallback, paymentId);
-    return;
-  }
-
-  // Intentar verificar y guardar via Apps Script
+  // Registrar la reserva como pendiente (best effort, no bloquea el flujo)
   try {
     const url = CFG.appsScriptURL +
-      '?action=verificarPago' +
-      '&payment_id=' + encodeURIComponent(paymentId) +
-      '&datos=' + encodeURIComponent(JSON.stringify(datos));
-
-    const r    = await fetch(url, {mode:'cors'});
-    const resp = await r.json();
-
-    if (resp.ok && resp.status === 'approved') {
-      localStorage.removeItem('jt_reserva');
-      mostrarExito(datos.codigo, datos);
-    } else if (resp.error) {
-      // Apps Script respondió pero con error — igual mostramos éxito si el status de MP era approved
-      console.warn('Apps Script error:', resp.error);
-      if (status === 'approved' || status === '') {
-        localStorage.removeItem('jt_reserva');
-        mostrarExito(datos.codigo, datos);
-      } else {
-        mostrarErrorPago('No se pudo confirmar el pago: ' + resp.error);
-      }
-    } else {
-      mostrarErrorPago('Pago no verificado. Estado: ' + (resp.status || 'desconocido'));
-    }
-  } catch(e) {
-    // Error de red/CORS — si MP dijo approved, confiar en eso y mostrar éxito
-    console.warn('Error verificando:', e);
-    if (status === 'approved' || status === '') {
-      localStorage.removeItem('jt_reserva');
-      // Guardar igualmente via imagen (no-cors)
-      guardarSinVerificar(datos, paymentId);
-      mostrarExito(datos.codigo, datos);
-    } else {
-      mostrarErrorPago('Error de conexión al verificar. Si pagaste correctamente, guardá tu código y contactá al organizador.');
-    }
-  }
-}
-
-// Guardar en Sheets aunque falle la verificación (no-cors, best effort)
-function guardarSinVerificar(datos, paymentId) {
-  try {
-    const url = CFG.appsScriptURL +
-      '?action=verificarPago' +
-      '&payment_id=' + encodeURIComponent(paymentId) +
-      '&datos=' + encodeURIComponent(JSON.stringify(datos));
+      '?action=registrarReserva' +
+      '&datos=' + encodeURIComponent(JSON.stringify(datosReserva));
     fetch(url, {mode:'no-cors'}).catch(()=>{});
   } catch(e) {}
-}
 
-// Éxito básico cuando no hay datos en localStorage
-function mostrarExitoBasico(codigo, paymentId) {
-  ['s1','s2','s3','s4'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
-  document.querySelector('.stepper').style.display='none';
-  document.getElementById('exito-detalle').innerHTML=`
-    <div class="ex-row"><span class="ex-k">Payment ID</span><span class="ex-v" style="font-size:.8rem;">${paymentId}</span></div>
-    <div class="ex-row"><span class="ex-k">Estado</span><span class="ex-v" style="color:var(--success)">✅ Pago aprobado</span></div>
-  `;
-  document.getElementById('exito-codigo').textContent=codigo;
-  window._codigo=codigo;
-  document.getElementById('exito').style.display='block';
-  scroll('exito');
+  mostrarExito(codigo, datosReserva);
+  // Abrir WhatsApp automáticamente para que envíe el comprobante
+  setTimeout(enviarWA, 400);
 }
 
 function mostrarEspera() {
@@ -841,30 +713,8 @@ function mostrarEspera() {
   document.getElementById('loading').style.display='block';
   document.getElementById('loading').innerHTML=`
     <div class="spinner"></div>
-    <p style="color:var(--muted);font-size:.95rem;margin-bottom:.5rem;">Verificando tu pago con Mercado Pago...</p>
-    <p style="color:var(--muted);font-size:.8rem;">Esto puede tardar unos segundos</p>
+    <p style="color:var(--muted);font-size:.95rem;margin-bottom:.5rem;">Registrando tu reserva...</p>
   `;
-}
-
-function mostrarErrorPago(msg) {
-  document.getElementById('loading').innerHTML=`
-    <div style="font-size:3rem;margin-bottom:1rem;">❌</div>
-    <p style="font-family:'Fredoka One',cursive;font-size:1.4rem;color:var(--accent3);margin-bottom:.5rem;">Pago no confirmado</p>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:1.5rem;">${msg}</p>
-    <button onclick="location.href=location.pathname" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-family:'Fredoka One',cursive;font-size:1rem;cursor:pointer;">
-      Volver a intentar
-    </button>
-  `;
-}
-
-// ===================== CHEQUEAR RETORNO DE MP AL CARGAR LA PÁGINA =====================
-function chequearRetornoMP() {
-  const params  = new URLSearchParams(window.location.search);
-  const payId   = params.get('payment_id') || params.get('collection_id');
-  const status  = params.get('status') || params.get('collection_status');
-  if (payId) {
-    verificarPagoMP(payId, status);
-  }
 }
 
 // ===================== ÉXITO =====================
@@ -882,7 +732,8 @@ function mostrarExito(codigo, datosParam){
     <div class="ex-row"><span class="ex-k">Horario</span><span class="ex-v">${d.hora}:00 a ${parseInt(d.hora)+1}:00 hs</span></div>
     <div class="ex-row"><span class="ex-k">Participantes</span><span class="ex-v">${d.pax} persona${d.pax>1?'s':''}</span></div>
     ${d.promo?(d.promo==='2x1'?`<div class="ex-row"><span class="ex-k">Promo</span><span class="ex-v" style="color:var(--promo)">2x1 activa ✓</span></div>`:`<div class="ex-row"><span class="ex-k">Promo</span><span class="ex-v" style="color:var(--promo)">3x2 activa ✓</span></div>`):''}
-    <div class="ex-row"><span class="ex-k">Total pagado</span><span class="ex-v" style="color:var(--success)">$${d.total.toLocaleString('es-AR')}</span></div>
+    <div class="ex-row"><span class="ex-k">Total a pagar</span><span class="ex-v" style="color:var(--accent)">$${d.total.toLocaleString('es-AR')}</span></div>
+    <div class="ex-row"><span class="ex-k">Estado</span><span class="ex-v" style="color:var(--yellow)">⏳ Pendiente de confirmación</span></div>
   `;
   document.getElementById('exito-codigo').textContent=codigo;
   window._codigo=codigo;
@@ -900,14 +751,14 @@ function enviarWA(){
   // Usar d.hora (guardado en localStorage) en vez de selHora (variable de módulo, null tras recarga)
   const horaNum=parseInt(d.hora)||selHora||0;
   const msg=
-    `✅ *Reserva confirmada - Juguemos Todos*\n\n`+
+    `👋 *Hola! Reserva - Juguemos Todos*\n\n`+
     `📅 ${d.fStr}\n`+
     `🕐 ${horaNum}:00 a ${horaNum+1}:00 hs\n`+
     `👥 ${d.pax} participante${d.pax>1?'s':''}\n`+
-    `💳 Total: $${d.total.toLocaleString('es-AR')}\n`+
+    `💳 Total a transferir: $${d.total.toLocaleString('es-AR')}\n`+
     `${d.promo==='2x1'?'🎁 Promo 2x1 aplicada\n':d.promo==='3x2'?'🎁 Promo 3x2 aplicada\n':''}`+
     `🎟️ Código: *${codigo}*\n\n`+
-    `¡Nos vemos ahí! 🎮`;
+    `Ya hice la transferencia, adjunto el comprobante 📎`;
   window.open('https://wa.me/'+CFG.whatsappNum+'?text='+encodeURIComponent(msg),'_blank');
 }
 

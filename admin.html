@@ -401,7 +401,7 @@ tr:hover td{background:rgba(244,131,31,0.03);}
         <table>
           <thead><tr>
             <th>Fecha</th><th>Horario</th><th>Nombre</th><th>Tipo</th>
-            <th>Cupos</th><th>Monto</th><th>Código</th><th>Teléfono</th><th>Email</th>
+            <th>Cupos</th><th>Monto</th><th>Código</th><th>Teléfono</th><th>Email</th><th>Estado</th>
           </tr></thead>
           <tbody id="tbl-body"></tbody>
         </table>
@@ -868,7 +868,7 @@ function calcularOcupacion(){
   ocupacion={};
   // Reservas web (Mercado Pago)
   reservas.forEach(r=>{
-    if(r.estado==='Pagado'||r.estado==='pagado'){
+    if(estaPagado(r)){
       const horaNum=parseInt(r.hora)||0;
       const k=toISOFecha(r.fecha)+'-'+horaNum;
       ocupacion[k]=(ocupacion[k]||0)+r.participantes;
@@ -892,7 +892,7 @@ function actualizarStats(){
   const txt = document.getElementById('buscar') ? document.getElementById('buscar').value.trim().toLowerCase() : '';
 
   const pag = reservas.filter(r=>{
-    if(r.estado !== 'Pagado') return false;
+    if(!estaPagado(r)) return false;
     if(fF && toISOFecha(r.fecha) !== fF) return false;
     if(fH && String(r.hora) !== String(fH)) return false;
     if(txt){
@@ -1015,6 +1015,56 @@ function fmtFecha(f){
 // ═══════════════════════════════════════════════
 // TABLA RESERVAS
 // ═══════════════════════════════════════════════
+function estaPagado(r){
+  return r.estado==='Pagado' || r.estado==='pagado';
+}
+
+// ═══════════════════════════════════════════════
+// CONFIRMAR PAGO (valida cupo y escribe en Google Sheets)
+// ═══════════════════════════════════════════════
+async function confirmarPago(codigo, btnEl){
+  const r = reservas.find(x=>x.codigo===codigo);
+  if(!r){ showToast('Error: reserva no encontrada.', 'err'); return; }
+
+  if(!ADMIN_CFG.appsScriptURL){
+    showToast('⚠ Falta configurar appsScriptURL.', 'err', 5000);
+    return;
+  }
+
+  if(btnEl){
+    btnEl.disabled = true;
+    btnEl.textContent = '⟳ Confirmando…';
+  }
+
+  try{
+    const url = ADMIN_CFG.appsScriptURL +
+      '?action=confirmarReserva&codigo=' + encodeURIComponent(codigo);
+    const resp = await fetch(url);
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json().catch(()=>({ok:true})); // tolera respuesta no-JSON
+
+    if(data && data.ok===false){
+      throw new Error(data.error || 'El servidor rechazó la confirmación');
+    }
+
+    // Reflejar el cambio localmente sin esperar otro fetch completo
+    r.estado = 'Pagado';
+    calcularOcupacion();
+    actualizarStats();
+    renderTabla();
+    renderAgenda();
+    renderCharts();
+    showToast('✓ Reserva de ' + r.nombre + ' confirmada y sincronizada', 'ok');
+  } catch(e){
+    console.warn('Error al confirmar pago:', e);
+    showToast('⚠ No se pudo confirmar en la planilla. Reintentá.', 'err', 5000);
+    if(btnEl){
+      btnEl.disabled = false;
+      btnEl.textContent = '✓ Confirmar';
+    }
+  }
+}
+
 function renderTabla(){
   const buscar=document.getElementById('buscar').value.toLowerCase();
   const fF=document.getElementById('fil-fecha').value;
@@ -1029,7 +1079,7 @@ function renderTabla(){
 
   const tbody=document.getElementById('tbl-body');
   if(fil.length===0){
-    tbody.innerHTML='<tr class="empty-row"><td colspan="9">Sin reservas que coincidan</td></tr>';
+    tbody.innerHTML='<tr class="empty-row"><td colspan="10">Sin reservas que coincidan</td></tr>';
     document.getElementById('tbl-count').textContent='';
     return;
   }
@@ -1062,6 +1112,14 @@ function renderTabla(){
       <td style="font-family:'Fredoka One',cursive;color:var(--cyan);font-size:.82rem;">${r.codigo}</td>
       <td style="color:var(--muted);">${r.tel}</td>
       <td style="color:var(--muted);font-size:.8rem;">${r.mail}</td>
+      <td>${estaPagado(r) ?
+        `<span class="badge b-paid">✓ Pagado</span>` :
+        `<button onclick="confirmarPago('${r.codigo}', this)"
+           style="background:var(--green);color:#fff;border:none;border-radius:6px;padding:8px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'Quicksand',sans-serif;white-space:nowrap;min-height:36px;"
+           title="Marcar como pagado y actualizar la planilla">
+           ✓ Confirmar
+         </button>`
+      }</td>
     </tr>`;
   }).join('');
 
@@ -1114,7 +1172,7 @@ function renderAgenda(){
       const color=sobreturno>0?'var(--red)':pct>80?'var(--red)':pct>50?'var(--yellow)':'var(--green)';
       const promo2x1=h===12||h===13;
       const promo3x2=h>=14&&h<=19;
-      const resHora=reservas.filter(r=>toISOFecha(r.fecha)===fecha&&r.hora===h&&r.estado==='Pagado');
+      const resHora=reservas.filter(r=>toISOFecha(r.fecha)===fecha&&r.hora===h&&estaPagado(r));
       const names=resHora.map(r=>`· ${r.nombre} (${r.participantes} cupos)`).join('  ');
       // Etiqueta derecha: si hay sobreturno muestra "+N ST" en naranja; si no, libres/completo
       const lblLib = sobreturno>0
@@ -1219,7 +1277,7 @@ function niceNumber(n){
 
 function renderCharts(){
   const {desde, hasta} = getFiltroResumen();
-  const pag=reservas.filter(r=>r.estado==='Pagado'&&enRango(r.fecha, desde, hasta));
+  const pag=reservas.filter(r=>estaPagado(r)&&enRango(r.fecha, desde, hasta));
   const fechas=[...new Set(pag.map(r=>r.fecha))].sort((a,b)=>toISOFecha(a).localeCompare(toISOFecha(b)));
   const horasCap=ADMIN_CFG.hF-ADMIN_CFG.h0+1;
 
@@ -1246,7 +1304,7 @@ function renderCharts(){
 function renderEstadisticas(){
   renderCharts();
   const {desde, hasta} = getFiltroResumen();
-  const pag=reservas.filter(r=>r.estado==='Pagado'&&enRango(r.fecha, desde, hasta));
+  const pag=reservas.filter(r=>estaPagado(r)&&enRango(r.fecha, desde, hasta));
   const total=pag.reduce((s,r)=>s+r.total,0);
   const totalPax=pag.reduce((s,r)=>s+r.participantes,0);
   const conPromo=pag.filter(r=>r.promo==='2x1'||r.promo==='3x2').length;
@@ -1397,7 +1455,7 @@ function renderCaja(){
 
   // ── CAJA ONLINE ─────────────────────────────────────────────────
   const pagadas = reservas.filter(r=>
-    (r.estado==='Pagado'||r.estado==='pagado') &&
+    estaPagado(r) &&
     enRango(r.fecha, desde, hasta)
   );
 
