@@ -289,6 +289,44 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 }
 .modal-cancel{display:block;width:100%;background:none;border:none;color:var(--muted);font-size:.9rem;cursor:pointer;padding:8px;}
 .modal-cancel:hover{color:var(--text);}
+
+/* ===== ESTADO DE TU RESERVA ===== */
+.estado-box{
+  background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:1.1rem 1.25rem;margin-bottom:1.25rem;box-shadow:0 2px 12px rgba(0,0,0,0.05);
+}
+.estado-head{
+  font-family:'Fredoka One',cursive;font-size:1.02rem;color:var(--text);
+  display:flex;align-items:center;gap:8px;margin-bottom:.75rem;
+}
+.estado-form{display:flex;gap:8px;margin-bottom:.6rem;flex-wrap:wrap;}
+.estado-form input{
+  flex:1;min-width:140px;background:#f0fafa;border:1.5px solid var(--border);
+  border-radius:10px;padding:10px 12px;font-family:'Quicksand',sans-serif;
+  font-size:.9rem;color:var(--text);outline:none;text-transform:uppercase;
+}
+.estado-form input:focus{border-color:var(--accent2);}
+.estado-btn{
+  background:var(--accent2);color:#fff;border:none;border-radius:10px;
+  padding:10px 18px;font-family:'Quicksand',sans-serif;font-weight:700;
+  font-size:.85rem;cursor:pointer;white-space:nowrap;
+}
+.estado-btn:disabled{opacity:.5;cursor:not-allowed;}
+.estado-result{font-size:.88rem;color:var(--muted);}
+.estado-card{
+  background:#f0fafa;border:1px solid var(--border);border-radius:10px;
+  padding:10px 14px;display:flex;flex-direction:column;gap:4px;
+}
+.estado-row{display:flex;justify-content:space-between;font-size:.85rem;}
+.estado-row .k{color:var(--muted);}
+.estado-row .v{font-weight:700;color:var(--text);}
+.estado-pill{
+  display:inline-flex;align-items:center;gap:5px;padding:4px 12px;
+  border-radius:20px;font-size:.78rem;font-weight:700;
+}
+.estado-pill.pend{background:rgba(255,209,102,0.35);color:#7a4a00;}
+.estado-pill.conf{background:rgba(46,196,182,0.2);color:#0d6b63;}
+.estado-pill.err{background:rgba(230,57,70,0.15);color:var(--accent3);}
 </style>
 </head>
 <body>
@@ -323,6 +361,18 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 </div>
 
 <div class="wrap">
+
+  <!-- ESTADO DE TU RESERVA -->
+  <div class="estado-box">
+    <div class="estado-head">🔎 Estado de tu reserva</div>
+    <div class="estado-form">
+      <input type="text" id="estado-input-codigo" placeholder="Ej: JTPO6HLK" maxlength="12">
+      <button class="estado-btn" id="estado-btn" onclick="consultarEstadoReserva()">Consultar</button>
+    </div>
+    <div class="estado-result" id="estado-resultado">
+      Ingresá el código que recibiste al reservar para ver si tu pago ya fue confirmado.
+    </div>
+  </div>
 
   <!-- STEPPER -->
   <div class="stepper">
@@ -496,10 +546,33 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 let selFecha=null, selHora=null, pax=1;
 let ocupacion={}; // cargado desde Google Sheets publicada (opcional)
 
+// URL del CSV publicado de la planilla (mismo que usa la ocupación y el panel admin)
+const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv';
+
+// Parser robusto: respeta campos entre comillas (igual al del admin)
+function splitCSVRow(row){
+  const result=[];
+  let field='',inQ=false;
+  for(let i=0;i<row.length;i++){
+    const ch=row[i];
+    if(ch==='"'){
+      if(inQ&&row[i+1]==='"'){field+='"';i++;}
+      else inQ=!inQ;
+    } else if(ch===','&&!inQ){
+      result.push(field.trim());field='';
+    } else {
+      field+=ch;
+    }
+  }
+  result.push(field.trim());
+  return result;
+}
+
 // ===================== INIT =====================
 window.onload = () => {
   generarFechas();
   cargarOcupacionSheets();
+  chequearEstadoGuardado();
 };
 
 // ===================== FECHAS =====================
@@ -777,27 +850,7 @@ function stepDone(done,active){
 
 // ===================== OCUPACIÓN DESDE SHEETS PUBLICADA =====================
 async function cargarOcupacionSheets(){
-  const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv';
   if(SHEET_CSV_URL==='TU_SHEET_CSV_URL') return;
-
-  // Parser robusto: respeta campos entre comillas (igual al del admin)
-  function splitCSVRow(row){
-    const result=[];
-    let field='',inQ=false;
-    for(let i=0;i<row.length;i++){
-      const ch=row[i];
-      if(ch==='"'){
-        if(inQ&&row[i+1]==='"'){field+='"';i++;}
-        else inQ=!inQ;
-      } else if(ch===','&&!inQ){
-        result.push(field.trim());field='';
-      } else {
-        field+=ch;
-      }
-    }
-    result.push(field.trim());
-    return result;
-  }
 
   try{
     const r=await fetch(SHEET_CSV_URL);
@@ -834,6 +887,110 @@ async function cargarOcupacionSheets(){
   }catch(e){console.log('No se pudo cargar ocupación',e);}
   document.getElementById('init-overlay').style.display='none';
 }
+
+// ===================== ESTADO DE TU RESERVA (por código) =====================
+// Reutiliza el mismo CSV publicado que ya usa cargarOcupacionSheets().
+// No requiere ningún cambio en el Apps Script: los datos ya están publicados.
+async function consultarEstadoReserva(codigoManual){
+  const inputEl  = document.getElementById('estado-input-codigo');
+  const btnEl    = document.getElementById('estado-btn');
+  const resultEl = document.getElementById('estado-resultado');
+
+  const codigo = (codigoManual || inputEl.value || '').trim().toUpperCase();
+  if(!codigo){
+    resultEl.innerHTML = '<span class="estado-pill err">⚠️ Ingresá tu código de reserva</span>';
+    return;
+  }
+
+  btnEl.disabled = true;
+  resultEl.innerHTML = '<div class="spinner" style="width:22px;height:22px;border-width:3px;margin:.25rem 0;"></div>';
+
+  try{
+    // Cache-busting para intentar evitar el caché del navegador (el de Google igual demora ~1-5 min en actualizar)
+    const r = await fetch(SHEET_CSV_URL + '&_=' + Date.now());
+    const txt = await r.text();
+    const lines = txt.trim().split('\n');
+    if(lines.length < 2){
+      resultEl.innerHTML = '<span class="estado-pill err">No se pudo consultar en este momento</span>';
+      return;
+    }
+
+    const primera = splitCSVRow(lines[1] || '');
+    const offset = (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(primera[0]) && /^\d{1,2}:\d{2}/.test(primera[1])) ? 1 : 0;
+
+    let encontrada = null;
+    for(const row of lines.slice(1)){
+      const cols = splitCSVRow(row);
+      if(cols.length < 8) continue;
+      const o = offset;
+      const filaCodigo = (cols[1+o] || '').trim().toUpperCase();
+      if(filaCodigo === codigo){
+        encontrada = {
+          codigo:  filaCodigo,
+          nombre:  (cols[2+o] || '').trim(),
+          fecha:   (cols[5+o] || '').trim(),
+          hora:    (cols[6+o] || '').trim(),
+          pax:     (cols[7+o] || '').trim(),
+          total:   (cols[8+o] || '').trim(),
+          estado:  (cols[10+o] || '').trim(),
+        };
+        break; // si hay más de una fila con el mismo código, se muestra la primera
+      }
+    }
+
+    if(!encontrada){
+      resultEl.innerHTML = '<span class="estado-pill err">❌ No encontramos ninguna reserva con ese código</span>';
+      return;
+    }
+
+    const estadoLower = encontrada.estado.toLowerCase();
+    const esPagado = estadoLower === 'pagado';
+    const pill = esPagado
+      ? '<span class="estado-pill conf">✅ Confirmado (pago recibido)</span>'
+      : '<span class="estado-pill pend">⏳ Pendiente de confirmación</span>';
+
+    resultEl.innerHTML = `
+      <div class="estado-card">
+        <div class="estado-row"><span class="k">Código</span><span class="v">${encontrada.codigo}</span></div>
+        <div class="estado-row"><span class="k">Nombre</span><span class="v">${encontrada.nombre}</span></div>
+        <div class="estado-row"><span class="k">Fecha / Hora</span><span class="v">${encontrada.fecha} · ${encontrada.hora}:00 hs</span></div>
+        <div class="estado-row"><span class="k">Estado</span><span class="v">${pill}</span></div>
+      </div>
+    `;
+  }catch(e){
+    console.log('Error consultando estado', e);
+    resultEl.innerHTML = '<span class="estado-pill err">Error de conexión. Probá de nuevo en un momento.</span>';
+  }finally{
+    btnEl.disabled = false;
+  }
+}
+
+// Si el navegador tiene guardado el código de una reserva reciente, precarga el campo
+// y consulta automáticamente su estado al entrar a la página.
+function chequearEstadoGuardado(){
+  const stored = localStorage.getItem('jt_reserva_confirmada');
+  if(!stored) return;
+  try{
+    const d = JSON.parse(stored);
+    if(d && d.codigo){
+      const inputEl = document.getElementById('estado-input-codigo');
+      if(inputEl){
+        inputEl.value = d.codigo;
+        consultarEstadoReserva(d.codigo);
+      }
+    }
+  }catch(e){}
+}
+
+// Permitir consultar con Enter
+document.addEventListener('DOMContentLoaded', ()=>{
+  const inputEl = document.getElementById('estado-input-codigo');
+  if(inputEl){
+    inputEl.addEventListener('keydown', (ev)=>{
+      if(ev.key === 'Enter') consultarEstadoReserva();
+    });
+  }
+});
 </script>
 </body>
 </html>
