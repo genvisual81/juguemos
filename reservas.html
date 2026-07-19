@@ -160,6 +160,21 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
 }
 .sold-tag{display:block;font-size:0.6rem;color:var(--promo);font-weight:700;}
 
+/* BLOQUEO DE PASOS PREVIOS AL LLEGAR AL RESUMEN */
+.paso-bloqueado{opacity:.5;filter:grayscale(.4);pointer-events:none;position:relative;}
+.paso-bloqueado::after{
+  content:'🔒 Confirmado — usá "Editar selección" para cambiar';
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  text-align:center;font-size:.75rem;font-weight:700;color:var(--muted);
+  background:rgba(255,255,255,0.55);padding:0 1rem;border-radius:var(--radius);
+}
+.btn-editar-sel{
+  display:block;width:100%;background:none;border:1.5px dashed var(--border);
+  color:var(--accent);font-family:'Quicksand',sans-serif;font-weight:700;font-size:.85rem;
+  border-radius:10px;padding:9px;margin-bottom:1rem;cursor:pointer;text-align:center;
+}
+.btn-editar-sel:hover{border-color:var(--accent);background:#fff7ef;}
+
 /* AVISO CUPO COMPLETO */
 .alerta-cupo-lleno{
   display:none;
@@ -427,6 +442,7 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   <!-- STEP 4: PAGO -->
   <div class="card" id="s4" style="display:none">
     <div class="card-head"><span class="ico">💳</span> Resumen y pago</div>
+    <button type="button" class="btn-editar-sel" onclick="editarSeleccion()">✏️ Editar selección (fecha, horario o participantes)</button>
     <div class="resumen" id="resumen"></div>
     <div class="alerta-cupo-lleno" id="alerta-cupo-lleno">
       <span class="alerta-ico">⛔</span> ¡Lo sentimos! Este horario ya no tiene cupos disponibles. Por favor, seleccioná otro horario.
@@ -686,7 +702,32 @@ function irPaso4(){
 
   renderResumen(nombre,tel,mail);
   show('s4'); stepDone(3,4);
+  bloquearPasoAnterior();
   scroll('s4');
+}
+
+// ===================== BLOQUEO / EDICIÓN DE SELECCIÓN =====================
+// Evita que se pueda cambiar fecha, horario o cantidad de participantes
+// "por atrás" mientras el cliente ya está viendo el resumen de pago
+// (eso es lo que causaba reservas con un total de transferencia distinto
+// al que finalmente quedaba registrado).
+function bloquearPasoAnterior(){
+  ['s1','s2','s3'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.add('paso-bloqueado');
+  });
+}
+function desbloquearPasoAnterior(){
+  ['s1','s2','s3'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.remove('paso-bloqueado');
+  });
+}
+function editarSeleccion(){
+  desbloquearPasoAnterior();
+  document.getElementById('s4').style.display='none';
+  stepDone(2,3);
+  scroll('s3');
 }
 
 function cerrarModalYaReserva(){
