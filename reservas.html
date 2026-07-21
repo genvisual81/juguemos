@@ -565,6 +565,9 @@ let ocupacion={}; // cargado desde Google Sheets publicada (opcional)
 // URL de la API de SheetDB conectada a la misma planilla (reemplaza el acceso
 // directo a Google, que la red del usuario estaba bloqueando).
 const SHEETDB_URL='https://sheetdb.io/api/v1/85fm2ivd41gy8';
+// Nombre exacto de la pestaña con las reservas — se especifica siempre
+// explícitamente para no depender de qué pestaña esté "primera" en el Sheet.
+const SHEETDB_HOJA_RESERVAS='Respuestas de formulario 1';
 
 // Parser robusto: respeta campos entre comillas (igual al del admin)
 function splitCSVRow(row){
@@ -825,7 +828,7 @@ async function confirmarReserva(){
       'Estado':         'Pendiente de pago',
       'Columna 11':     'Transferencia',
     };
-    fetchConTimeout(SHEETDB_URL, {
+    fetchConTimeout(SHEETDB_URL + '?sheet=' + encodeURIComponent(SHEETDB_HOJA_RESERVAS), {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({data:[filaNueva]})
@@ -924,7 +927,7 @@ async function cargarOcupacionSheets(){
   if(!SHEETDB_URL){ document.getElementById('init-overlay').style.display='none'; return; }
 
   try{
-    const r = await fetchConTimeout(SHEETDB_URL + '?t=' + Date.now(), {}, 10000);
+    const r = await fetchConTimeout(SHEETDB_URL + '?sheet=' + encodeURIComponent(SHEETDB_HOJA_RESERVAS) + '&t=' + Date.now(), {}, 10000);
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
 
@@ -966,7 +969,7 @@ async function consultarEstadoReserva(codigoManual){
   resultEl.innerHTML = '<div class="spinner" style="width:22px;height:22px;border-width:3px;margin:.25rem 0;"></div>';
 
   try{
-    const r = await fetchConTimeout(SHEETDB_URL + '/search?Codigo=' + encodeURIComponent(codigo) + '&t=' + Date.now(), {}, 10000);
+    const r = await fetchConTimeout(SHEETDB_URL + '/search?Codigo=' + encodeURIComponent(codigo) + '&sheet=' + encodeURIComponent(SHEETDB_HOJA_RESERVAS) + '&t=' + Date.now(), {}, 10000);
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
 

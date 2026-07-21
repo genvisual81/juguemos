@@ -521,6 +521,9 @@ const ADMIN_CFG = {
   // Reemplaza el acceso directo a Google (docs.google.com / script.google.com),
   // que estaba siendo bloqueado por la red del usuario.
   sheetdbURL: 'https://sheetdb.io/api/v1/85fm2ivd41gy8',
+  // Nombre exacto de la pestaña con las reservas — se especifica siempre
+  // explícitamente para no depender de qué pestaña esté "primera" en el Sheet.
+  sheetdbHojaReservas: 'Respuestas de formulario 1',
 
   // (en desuso, se deja de referencia — ya no se usa para cargar datos)
   sheetCSV: 'https://docs.google.com/spreadsheets/d/1jIOiyBQzKG7z09JSb-ZlhpnfnWCQ-M-KyXyExkpQYI0/gviz/tq?tqx=out:csv&gid=1595343615',
@@ -755,7 +758,7 @@ async function cargarDatos(){
     reservas = demoData();
   } else {
     try {
-      const r = await fetchConTimeout(ADMIN_CFG.sheetdbURL + '?t=' + Date.now(), {}, 10000);
+      const r = await fetchConTimeout(ADMIN_CFG.sheetdbURL + '?sheet=' + encodeURIComponent(ADMIN_CFG.sheetdbHojaReservas) + '&t=' + Date.now(), {}, 10000);
       if(!r.ok) throw new Error('HTTP ' + r.status);
       const data = await r.json();
       reservas = data.map(filaSheetDBAReserva).filter(x=>x && x.codigo);
