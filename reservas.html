@@ -562,8 +562,9 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 let selFecha=null, selHora=null, pax=1;
 let ocupacion={}; // cargado desde Google Sheets publicada (opcional)
 
-// URL del CSV publicado de la planilla (mismo que usa la ocupación y el panel admin)
-const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/1jIOiyBQzKG7z09JSb-ZlhpnfnWCQ-M-KyXyExkpQYI0/gviz/tq?tqx=out:csv&gid=1595343615';
+// URL de la API de SheetDB conectada a la misma planilla (reemplaza el acceso
+// directo a Google, que la red del usuario estaba bloqueando).
+const SHEETDB_URL='https://sheetdb.io/api/v1/tqc9dxeb7fs17';
 
 // Parser robusto: respeta campos entre comillas (igual al del admin)
 function splitCSVRow(row){
@@ -810,10 +811,25 @@ async function confirmarReserva(){
 
   // Registrar la reserva como pendiente (best effort, no bloquea el flujo)
   try {
-    const url = CFG.appsScriptURL +
-      '?action=registrarReserva' +
-      '&datos=' + encodeURIComponent(JSON.stringify(datosReserva));
-    fetch(url, {mode:'no-cors'}).catch(()=>{});
+    const filaNueva = {
+      'Marca temporal': new Date().toLocaleString('es-AR'),
+      'Codigo':         codigo,
+      'Nombre':         datosReserva.nombre,
+      'Telefono':       datosReserva.tel,
+      'Email':          datosReserva.mail,
+      'Fecha':          datosReserva.fStr || datosReserva.fecha,
+      'Hora':           datosReserva.hora + ':00',
+      'Participantes':  datosReserva.participantes,
+      'Total':          datosReserva.total,
+      'Promo':          datosReserva.promo || 'No',
+      'Estado':         'Pendiente de pago',
+      'Columna 11':     'Transferencia',
+    };
+    fetchConTimeout(SHEETDB_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({data:[filaNueva]})
+    }, 10000).catch(()=>{});
   } catch(e) {}
 
   mostrarExito(codigo, datosReserva);
@@ -901,35 +917,24 @@ async function fetchConTimeout(url, opts={}, timeoutMs=10000){
   }
 }
 
-// ===================== OCUPACIÓN DESDE SHEETS PUBLICADA =====================
+// ===================== OCUPACIÓN DESDE SHEETDB =====================
 async function cargarOcupacionSheets(){
-  if(SHEET_CSV_URL==='TU_SHEET_CSV_URL'){ document.getElementById('init-overlay').style.display='none'; return; }
+  if(!SHEETDB_URL){ document.getElementById('init-overlay').style.display='none'; return; }
 
   try{
-    const r=await fetchConTimeout(SHEET_CSV_URL, {}, 10000);
-    const txt=await r.text();
-    const lines=txt.trim().split('\n');
-    if(lines.length<2){ document.getElementById('init-overlay').style.display='none'; return; }
+    const r = await fetchConTimeout(SHEETDB_URL + '?t=' + Date.now(), {}, 10000);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
 
-    // Detectar offset (timestamp con coma interna)
-    const primera=splitCSVRow(lines[1]||'');
-    const offset=(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(primera[0])&&/^\d{1,2}:\d{2}/.test(primera[1]))?1:0;
-
-    lines.slice(1).forEach(row=>{
-      const cols=splitCSVRow(row);
-      if(cols.length<8) return;
-      const o=offset;
-      // Índices correctos: col[5+o]=fecha, col[6+o]=hora, col[7+o]=participantes, col[10+o]=estado
-      const fecha=cols[5+o]?.trim();
-      const horaRaw=cols[6+o]?.trim()||'0';
-      const hora=parseInt(horaRaw.replace(':00:00','').replace(':00','').replace('hs','').trim())||0;
-      // Participantes: puede ser número o "Opción N"
-      const paxRaw=cols[7+o]?.trim()||'0';
-      const paxMatch=paxRaw.match(/(\d+)/);
-      const pax=paxMatch?parseInt(paxMatch[1]):0;
-      const estado=cols[10+o]?.trim();
-      if(fecha&&hora&&pax&&(estado==='Pagado'||estado==='pagado')){
-        // Normalizar fecha a ISO
+    data.forEach(row=>{
+      const fecha = (row['Fecha']||'').trim();
+      const horaRaw = String(row['Hora']||'0').trim();
+      const hora = parseInt(horaRaw.replace(':00:00','').replace(':00','').replace('hs','').trim())||0;
+      const paxRaw = String(row['Participantes']||'0').trim();
+      const paxMatch = paxRaw.match(/(\d+)/);
+      const pax = paxMatch ? parseInt(paxMatch[1]) : 0;
+      const estado = (row['Estado']||'').trim();
+      if(fecha && hora && pax && (estado==='Pagado'||estado==='pagado')){
         let fechaISO=fecha;
         const m=fecha.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         if(m) fechaISO=m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
@@ -959,36 +964,22 @@ async function consultarEstadoReserva(codigoManual){
   resultEl.innerHTML = '<div class="spinner" style="width:22px;height:22px;border-width:3px;margin:.25rem 0;"></div>';
 
   try{
-    // Cache-busting para intentar evitar el caché del navegador (el de Google igual demora ~1-5 min en actualizar)
-    const r = await fetchConTimeout(SHEET_CSV_URL + '&_=' + Date.now(), {}, 10000);
-    const txt = await r.text();
-    const lines = txt.trim().split('\n');
-    if(lines.length < 2){
-      resultEl.innerHTML = '<span class="estado-pill err">No se pudo consultar en este momento</span>';
-      return;
-    }
-
-    const primera = splitCSVRow(lines[1] || '');
-    const offset = (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(primera[0]) && /^\d{1,2}:\d{2}/.test(primera[1])) ? 1 : 0;
+    const r = await fetchConTimeout(SHEETDB_URL + '/search?Codigo=' + encodeURIComponent(codigo) + '&t=' + Date.now(), {}, 10000);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
 
     let encontrada = null;
-    for(const row of lines.slice(1)){
-      const cols = splitCSVRow(row);
-      if(cols.length < 8) continue;
-      const o = offset;
-      const filaCodigo = (cols[1+o] || '').trim().toUpperCase();
-      if(filaCodigo === codigo){
-        encontrada = {
-          codigo:  filaCodigo,
-          nombre:  (cols[2+o] || '').trim(),
-          fecha:   (cols[5+o] || '').trim(),
-          hora:    (cols[6+o] || '').trim(),
-          pax:     (cols[7+o] || '').trim(),
-          total:   (cols[8+o] || '').trim(),
-          estado:  (cols[10+o] || '').trim(),
-        };
-        break; // si hay más de una fila con el mismo código, se muestra la primera
-      }
+    if(Array.isArray(data) && data.length){
+      const row = data[0];
+      encontrada = {
+        codigo:  (row['Codigo']  || '').trim(),
+        nombre:  (row['Nombre']  || '').trim(),
+        fecha:   (row['Fecha']   || '').trim(),
+        hora:    String(row['Hora'] || '').replace(':00:00','').replace(':00','').trim(),
+        pax:     (row['Participantes'] || '').toString().trim(),
+        total:   (row['Total']   || '').toString().trim(),
+        estado:  (row['Estado']  || '').trim(),
+      };
     }
 
     if(!encontrada){

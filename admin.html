@@ -517,9 +517,12 @@ tr:hover td{background:rgba(244,131,31,0.03);}
 const ADMIN_CFG = {
   password: 'juguemos2026',   // ← CAMBIÁ esta contraseña
 
-  // URL del CSV de tu Google Sheet vía la API gviz/tq (más estable que "Publicar en la web":
-  // no depende de un redirect a googleusercontent.com que algunos bloqueadores de anuncios cuelgan).
-  // Solo requiere que la hoja esté compartida como "Cualquier usuario con el enlace puede ver".
+  // URL de la API de SheetDB conectada a tu Google Sheet.
+  // Reemplaza el acceso directo a Google (docs.google.com / script.google.com),
+  // que estaba siendo bloqueado por la red del usuario.
+  sheetdbURL: 'https://sheetdb.io/api/v1/tqc9dxeb7fs17',
+
+  // (en desuso, se deja de referencia — ya no se usa para cargar datos)
   sheetCSV: 'https://docs.google.com/spreadsheets/d/1jIOiyBQzKG7z09JSb-ZlhpnfnWCQ-M-KyXyExkpQYI0/gviz/tq?tqx=out:csv&gid=1595343615',
   appsScriptURL: 'https://script.google.com/macros/s/AKfycbyhz999Cwu9LlBf4HBOgh2bD2XP94Ghq_pFTmphtFhnfadAHFIwKJxf8ZOBhwgzMgg/exec',
 
@@ -748,20 +751,18 @@ async function fetchConTimeout(url, opts={}, timeoutMs=10000){
 
 async function cargarDatos(){
   mostrarLoader(true);
-  if(!ADMIN_CFG.sheetCSV || ADMIN_CFG.sheetCSV==='TU_SHEET_CSV_URL'){
+  if(!ADMIN_CFG.sheetdbURL){
     reservas = demoData();
   } else {
     try {
-      // Google Sheets publicado como CSV — cachebuster para forzar refresh
-      const url = ADMIN_CFG.sheetCSV + '&t=' + Date.now();
-      const r = await fetchConTimeout(url, {}, 10000);
+      const r = await fetchConTimeout(ADMIN_CFG.sheetdbURL + '?t=' + Date.now(), {}, 10000);
       if(!r.ok) throw new Error('HTTP ' + r.status);
-      const txt = await r.text();
-      reservas = parsearCSV(txt);
+      const data = await r.json();
+      reservas = data.map(filaSheetDBAReserva).filter(x=>x && x.codigo);
     } catch(e){
       console.warn('Error cargando reservas:', e);
       const msg = (e && e.name==='AbortError')
-        ? '⚠ Tardó demasiado en responder Google Sheets (¿bloqueador de anuncios activo?). Mostrando datos demo.'
+        ? '⚠ Tardó demasiado en responder. Mostrando datos demo.'
         : '⚠ Error al cargar reservas. Verifcá la conexión.';
       showToast(msg, 'err', 5000);
       reservas = demoData();
@@ -783,6 +784,36 @@ async function cargarDatos(){
   mostrarLoader(false);
   document.getElementById('last-update').textContent =
     'Act: ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+}
+
+// Mapea una fila JSON de SheetDB (claves = encabezados de la planilla) al mismo
+// formato de objeto que antes producía el parser de CSV, para no tocar el resto del código.
+function filaSheetDBAReserva(row){
+  if(!row) return null;
+  const horaRaw = String(row['Hora']||'0');
+  const horaNum = parseInt(horaRaw.replace(':00:00','').replace(':00','').replace('hs','').trim())||0;
+
+  const paxRaw = String(row['Participantes']||'0');
+  const paxMatch = paxRaw.match(/(\d+)/);
+  const participantes = paxMatch ? parseInt(paxMatch[1]) : 0;
+
+  const totalRaw = parseInt(String(row['Total']||'').replace(/\./g,'').replace(/,/g,'')) || 0;
+  const totalFinal = totalRaw >= 1000 ? totalRaw : totalRaw > 0 ? totalRaw*1000 : 0;
+
+  return {
+    timestamp:    row['Marca temporal']||'',
+    codigo:       row['Codigo']||'',
+    nombre:       row['Nombre']||'',
+    tel:          row['Telefono']||'',
+    mail:         row['Email']||'',
+    fecha:        row['Fecha']||'',
+    hora:         horaNum,
+    participantes,
+    total:        totalFinal,
+    promo:        row['Promo']||'No',
+    estado:       row['Estado']||'Pagado',
+    paymentId:    row['Columna 11']||'',
+  };
 }
 
 function parsearCSV(txt){
@@ -1399,13 +1430,33 @@ function cambiarTab(name, el){
 // ═══════════════════════════════════════════════
 let cobrosManuales = []; // Se carga desde Google Sheets
 
+// Mapea una fila JSON de SheetDB (hoja CajaManual) al formato interno de cobro.
+function filaSheetDBACobro(row){
+  if(!row) return null;
+  const horaRaw = String(row['Hora']||'0');
+  const horaNum = parseInt(horaRaw.replace(':00:00','').replace(':00','').replace('hs','').trim())||0;
+  return {
+    id:        parseInt(row['ID'],10) || 0,
+    timestamp: row['Timestamp']||'',
+    nombre:    row['Nombre']||'',
+    tel:       row['Telefono']||'',
+    fecha:     row['Fecha']||'',
+    hora:      horaNum,
+    cupos:     parseInt(row['Cupos'],10) || 0,
+    medio:     row['Medio']||'',
+    monto:     parseFloat(row['Monto']) || 0,
+    tipo:      row['Tipo']||'Manual',
+    obs:       row['Observación']||'',
+  };
+}
+
 async function cargarCobrosManualles(){
-  if(!ADMIN_CFG.appsScriptURL) return;
+  if(!ADMIN_CFG.sheetdbURL) return;
   try {
-    const r = await fetchConTimeout(ADMIN_CFG.appsScriptURL+'?action=getCobrosManualles', {}, 10000);
+    const r = await fetchConTimeout(ADMIN_CFG.sheetdbURL + '?sheet=CajaManual&t=' + Date.now(), {}, 10000);
     if(!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
-    if(d.ok) cobrosManuales = d.cobros;
+    const data = await r.json();
+    cobrosManuales = data.map(filaSheetDBACobro).filter(c=>c && c.id);
   } catch(e){
     const msg = (e && e.name==='AbortError') ? 'Timeout esperando cobros manuales' : e;
     console.log('Error cargando cobros:', msg);
@@ -1663,13 +1714,25 @@ function guardarCobroManual(){
 
     cobrosManuales[idx] = cobroEditado;
 
-    // Sincronizar con Sheets
-    if(ADMIN_CFG.appsScriptURL){
-      const url = ADMIN_CFG.appsScriptURL +
-        '?action=editarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobroEditado));
+    // Sincronizar con Sheets vía SheetDB
+    if(ADMIN_CFG.sheetdbURL){
+      const filaEditada = {
+        'Nombre':       cobroEditado.nombre,
+        'Telefono':     cobroEditado.tel,
+        'Fecha':        cobroEditado.fecha,
+        'Hora':         cobroEditado.hora + ':00',
+        'Cupos':        cobroEditado.cupos,
+        'Medio':        cobroEditado.medio,
+        'Monto':        cobroEditado.monto,
+        'Observación':  cobroEditado.obs,
+      };
       showToast('⟳ Sincronizando…', 'info', 8000);
-      fetch(url)
-        .then(()=>{ showToast('✓ Cobro de ' + nombre + ' sincronizado', 'ok'); })
+      fetchConTimeout(ADMIN_CFG.sheetdbURL + '/ID/' + cobroEditado.id + '?sheet=CajaManual', {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({data: filaEditada})
+      }, 10000)
+        .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); showToast('✓ Cobro de ' + nombre + ' sincronizado', 'ok'); })
         .catch(()=>{ showToast('⚠ Cambios guardados localmente. Error al sincronizar.', 'err', 5000); });
     }
 
@@ -1688,12 +1751,27 @@ function guardarCobroManual(){
     // Agregar al array local inmediatamente para que aparezca sin recargar
     cobrosManuales.push(cobro);
 
-    if(ADMIN_CFG.appsScriptURL){
-      const url = ADMIN_CFG.appsScriptURL +
-        '?action=guardarCobroManual&datos=' + encodeURIComponent(JSON.stringify(cobro));
+    if(ADMIN_CFG.sheetdbURL){
+      const filaNueva = {
+        'ID':           cobro.id,
+        'Timestamp':    cobro.timestamp,
+        'Nombre':       cobro.nombre,
+        'Telefono':     cobro.tel,
+        'Fecha':        cobro.fecha,
+        'Hora':         cobro.hora + ':00',
+        'Cupos':        cobro.cupos,
+        'Medio':        cobro.medio,
+        'Monto':        cobro.monto,
+        'Tipo':         cobro.tipo,
+        'Observación':  cobro.obs,
+      };
       showToast('⟳ Sincronizando…', 'info', 8000);
-      fetch(url)
-        .then(()=>{ showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok'); })
+      fetchConTimeout(ADMIN_CFG.sheetdbURL + '?sheet=CajaManual', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({data:[filaNueva]})
+      }, 10000)
+        .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok'); })
         .catch(()=>{ showToast('⚠ Cobro guardado localmente. Error al sincronizar.', 'err', 5000); });
     } else {
       showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok');
@@ -1752,9 +1830,8 @@ function _confirmarEliminacion(id, nombre, monto){
 function _confirmarSi(id){
   document.getElementById('_confirm-panel').style.display='none';
   cobrosManuales = cobrosManuales.filter(c=>c.id!==id);
-  if(ADMIN_CFG.appsScriptURL){
-    const url = ADMIN_CFG.appsScriptURL+'?action=eliminarCobroManual&id='+id;
-    fetch(url).catch(()=>{});
+  if(ADMIN_CFG.sheetdbURL){
+    fetchConTimeout(ADMIN_CFG.sheetdbURL + '/ID/' + id + '?sheet=CajaManual', {method:'DELETE'}, 10000).catch(()=>{});
   }
   showToast('Cobro eliminado', 'info');
   renderCaja();
