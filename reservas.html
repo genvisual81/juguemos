@@ -563,7 +563,7 @@ let selFecha=null, selHora=null, pax=1;
 let ocupacion={}; // cargado desde Google Sheets publicada (opcional)
 
 // URL del CSV publicado de la planilla (mismo que usa la ocupación y el panel admin)
-const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv';
+const SHEET_CSV_URL='https://docs.google.com/spreadsheets/d/1jIOiyBQzKG7z09JSb-ZlhpnfnWCQ-M-KyXyExkpQYI0/gviz/tq?tqx=out:csv&gid=1595343615';
 
 // Parser robusto: respeta campos entre comillas (igual al del admin)
 function splitCSVRow(row){
@@ -889,12 +889,24 @@ function stepDone(done,active){
   }
 }
 
+// Fetch con timeout — evita que la página quede tapada por el overlay de carga
+// para siempre si Google (o un bloqueador de anuncios/extensión) cuelga la petición.
+async function fetchConTimeout(url, opts={}, timeoutMs=10000){
+  const controller = new AbortController();
+  const id = setTimeout(()=>controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {...opts, signal: controller.signal});
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 // ===================== OCUPACIÓN DESDE SHEETS PUBLICADA =====================
 async function cargarOcupacionSheets(){
-  if(SHEET_CSV_URL==='TU_SHEET_CSV_URL') return;
+  if(SHEET_CSV_URL==='TU_SHEET_CSV_URL'){ document.getElementById('init-overlay').style.display='none'; return; }
 
   try{
-    const r=await fetch(SHEET_CSV_URL);
+    const r=await fetchConTimeout(SHEET_CSV_URL, {}, 10000);
     const txt=await r.text();
     const lines=txt.trim().split('\n');
     if(lines.length<2){ document.getElementById('init-overlay').style.display='none'; return; }
@@ -948,7 +960,7 @@ async function consultarEstadoReserva(codigoManual){
 
   try{
     // Cache-busting para intentar evitar el caché del navegador (el de Google igual demora ~1-5 min en actualizar)
-    const r = await fetch(SHEET_CSV_URL + '&_=' + Date.now());
+    const r = await fetchConTimeout(SHEET_CSV_URL + '&_=' + Date.now(), {}, 10000);
     const txt = await r.text();
     const lines = txt.trim().split('\n');
     if(lines.length < 2){

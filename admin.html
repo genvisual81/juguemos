@@ -517,10 +517,10 @@ tr:hover td{background:rgba(244,131,31,0.03);}
 const ADMIN_CFG = {
   password: 'juguemos2026',   // ← CAMBIÁ esta contraseña
 
-  // URL del CSV publicado de tu Google Sheet.
-  // Instrucciones: Archivo → Compartir → Publicar en la web
-  // → Seleccioná la hoja "Reservas" → formato CSV → Publicar → copiar link
-  sheetCSV: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT71GbSj44GC7sHQNhLtx-ZcDKOJHfSA3LcyqkZUPMcU1Jwnkkt1-JxE2zOwdIJh-4Vixnw89s2m5y5/pub?gid=1595343615&single=true&output=csv',
+  // URL del CSV de tu Google Sheet vía la API gviz/tq (más estable que "Publicar en la web":
+  // no depende de un redirect a googleusercontent.com que algunos bloqueadores de anuncios cuelgan).
+  // Solo requiere que la hoja esté compartida como "Cualquier usuario con el enlace puede ver".
+  sheetCSV: 'https://docs.google.com/spreadsheets/d/1jIOiyBQzKG7z09JSb-ZlhpnfnWCQ-M-KyXyExkpQYI0/gviz/tq?tqx=out:csv&gid=1595343615',
   appsScriptURL: 'https://script.google.com/macros/s/AKfycbyhz999Cwu9LlBf4HBOgh2bD2XP94Ghq_pFTmphtFhnfadAHFIwKJxf8ZOBhwgzMgg/exec',
 
   precio: 20000,
@@ -734,6 +734,18 @@ async function actualizarDatos(){
   showToast('✓ Datos actualizados', 'ok');
 }
 
+// Fetch con timeout — evita que la app quede "pensando" para siempre
+// si Google (o un bloqueador de anuncios/extensión) deja la petición colgada.
+async function fetchConTimeout(url, opts={}, timeoutMs=10000){
+  const controller = new AbortController();
+  const id = setTimeout(()=>controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {...opts, signal: controller.signal});
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 async function cargarDatos(){
   mostrarLoader(true);
   if(!ADMIN_CFG.sheetCSV || ADMIN_CFG.sheetCSV==='TU_SHEET_CSV_URL'){
@@ -742,13 +754,16 @@ async function cargarDatos(){
     try {
       // Google Sheets publicado como CSV — cachebuster para forzar refresh
       const url = ADMIN_CFG.sheetCSV + '&t=' + Date.now();
-      const r = await fetch(url);
+      const r = await fetchConTimeout(url, {}, 10000);
       if(!r.ok) throw new Error('HTTP ' + r.status);
       const txt = await r.text();
       reservas = parsearCSV(txt);
     } catch(e){
       console.warn('Error cargando reservas:', e);
-      showToast('⚠ Error al cargar reservas. Verifcá la conexión.', 'err', 5000);
+      const msg = (e && e.name==='AbortError')
+        ? '⚠ Tardó demasiado en responder Google Sheets (¿bloqueador de anuncios activo?). Mostrando datos demo.'
+        : '⚠ Error al cargar reservas. Verifcá la conexión.';
+      showToast(msg, 'err', 5000);
       reservas = demoData();
     }
   }
@@ -1387,10 +1402,14 @@ let cobrosManuales = []; // Se carga desde Google Sheets
 async function cargarCobrosManualles(){
   if(!ADMIN_CFG.appsScriptURL) return;
   try {
-    const r = await fetch(ADMIN_CFG.appsScriptURL+'?action=getCobrosManualles');
+    const r = await fetchConTimeout(ADMIN_CFG.appsScriptURL+'?action=getCobrosManualles', {}, 10000);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     if(d.ok) cobrosManuales = d.cobros;
-  } catch(e){ console.log('Error cargando cobros:', e); }
+  } catch(e){
+    const msg = (e && e.name==='AbortError') ? 'Timeout esperando cobros manuales' : e;
+    console.log('Error cargando cobros:', msg);
+  }
 }
 
 function setCajaHoy(){
