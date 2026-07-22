@@ -503,6 +503,26 @@ body{font-family:'Quicksand',sans-serif;background:var(--bg);color:var(--text);m
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDCmL8n6GJVXak1K8yGVk_tgNCeUKS5C3Q",
+  authDomain: "juguemos-todos.firebaseapp.com",
+  projectId: "juguemos-todos",
+  storageBucket: "juguemos-todos.firebasestorage.app",
+  messagingSenderId: "327911084284",
+  appId: "1:327911084284:web:6b8f5232022db0eceb8779"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+function conTimeout(promesa, ms=10000){
+  return Promise.race([
+    promesa,
+    new Promise((_, reject)=>setTimeout(()=>reject(Object.assign(new Error('Timeout'),{name:'AbortError'})), ms))
+  ]);
+}
+</script>
 <script>
 // ===================== CONFIGURACIÓN =====================
 // ⚠️ COMPLETAR ESTOS DATOS ANTES DE PUBLICAR
@@ -815,24 +835,20 @@ async function confirmarReserva(){
   // Registrar la reserva como pendiente (best effort, no bloquea el flujo)
   try {
     const filaNueva = {
-      'Marca temporal': new Date().toLocaleString('es-AR'),
-      'Codigo':         codigo,
-      'Nombre':         datosReserva.nombre,
-      'Telefono':       datosReserva.tel,
-      'Email':          datosReserva.mail,
-      'Fecha':          datosReserva.fStr || datosReserva.fecha,
-      'Hora':           datosReserva.hora + ':00',
-      'Participantes':  datosReserva.participantes,
-      'Total':          datosReserva.total,
-      'Promo':          datosReserva.promo || 'No',
-      'Estado':         'Pendiente de pago',
-      'Columna 11':     'Transferencia',
+      timestamp:     new Date().toLocaleString('es-AR'),
+      codigo:        codigo,
+      nombre:        datosReserva.nombre,
+      tel:           datosReserva.tel,
+      mail:          datosReserva.mail,
+      fecha:         datosReserva.fStr || datosReserva.fecha,
+      hora:          parseInt(datosReserva.hora)||0,
+      participantes: datosReserva.participantes,
+      total:         datosReserva.total,
+      promo:         datosReserva.promo || 'No',
+      estado:        'Pendiente de pago',
+      paymentId:     'Transferencia',
     };
-    fetchConTimeout(SHEETDB_URL + '?sheet=' + encodeURIComponent(SHEETDB_HOJA_RESERVAS), {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({data:[filaNueva]})
-    }, 10000).catch(()=>{});
+    conTimeout(db.collection('reservas').doc(codigo).set(filaNueva), 10000).catch(()=>{});
   } catch(e) {}
 
   mostrarExito(codigo, datosReserva);
@@ -924,21 +940,14 @@ async function fetchConTimeout(url, opts={}, timeoutMs=10000){
 
 // ===================== OCUPACIÓN DESDE SHEETDB =====================
 async function cargarOcupacionSheets(){
-  if(!SHEETDB_URL){ document.getElementById('init-overlay').style.display='none'; return; }
-
   try{
-    const r = await fetchConTimeout(SHEETDB_URL + '?sheet=' + encodeURIComponent(SHEETDB_HOJA_RESERVAS) + '&t=' + Date.now(), {}, 10000);
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-
-    data.forEach(row=>{
-      const fecha = (row['Fecha']||'').trim();
-      const horaRaw = String(row['Hora']||'0').trim();
-      const hora = parseInt(horaRaw.replace(':00:00','').replace(':00','').replace('hs','').trim())||0;
-      const paxRaw = String(row['Participantes']||'0').trim();
-      const paxMatch = paxRaw.match(/(\d+)/);
-      const pax = paxMatch ? parseInt(paxMatch[1]) : 0;
-      const estado = (row['Estado']||'').trim();
+    const snap = await conTimeout(db.collection('reservas').get(), 10000);
+    snap.docs.forEach(doc=>{
+      const r = doc.data();
+      const fecha = (r.fecha||'').trim();
+      const hora = parseInt(r.hora)||0;
+      const pax = parseInt(r.participantes)||0;
+      const estado = (r.estado||'').trim();
       if(fecha && hora && pax && (estado==='Pagado'||estado==='pagado')){
         let fechaISO=fecha;
         const m=fecha.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
@@ -969,21 +978,19 @@ async function consultarEstadoReserva(codigoManual){
   resultEl.innerHTML = '<div class="spinner" style="width:22px;height:22px;border-width:3px;margin:.25rem 0;"></div>';
 
   try{
-    const r = await fetchConTimeout(SHEETDB_URL + '/search?Codigo=' + encodeURIComponent(codigo) + '&sheet=' + encodeURIComponent(SHEETDB_HOJA_RESERVAS) + '&t=' + Date.now(), {}, 10000);
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
+    const doc = await conTimeout(db.collection('reservas').doc(codigo).get(), 10000);
 
     let encontrada = null;
-    if(Array.isArray(data) && data.length){
-      const row = data[0];
+    if(doc.exists){
+      const r = doc.data();
       encontrada = {
-        codigo:  (row['Codigo']  || '').trim(),
-        nombre:  (row['Nombre']  || '').trim(),
-        fecha:   (row['Fecha']   || '').trim(),
-        hora:    String(row['Hora'] || '').replace(':00:00','').replace(':00','').trim(),
-        pax:     (row['Participantes'] || '').toString().trim(),
-        total:   (row['Total']   || '').toString().trim(),
-        estado:  (row['Estado']  || '').trim(),
+        codigo:  r.codigo  || '',
+        nombre:  r.nombre  || '',
+        fecha:   r.fecha   || '',
+        hora:    String(r.hora != null ? r.hora : ''),
+        pax:     String(r.participantes != null ? r.participantes : ''),
+        total:   String(r.total != null ? r.total : ''),
+        estado:  r.estado  || '',
       };
     }
 

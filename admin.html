@@ -510,6 +510,20 @@ tr:hover td{background:rgba(244,131,31,0.03);}
   </div><!-- /main -->
 </div><!-- /app -->
 
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDCmL8n6GJVXak1K8yGVk_tgNCeUKS5C3Q",
+  authDomain: "juguemos-todos.firebaseapp.com",
+  projectId: "juguemos-todos",
+  storageBucket: "juguemos-todos.firebasestorage.app",
+  messagingSenderId: "327911084284",
+  appId: "1:327911084284:web:6b8f5232022db0eceb8779"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+</script>
 <script>
 // ═══════════════════════════════════════════════
 // CONFIGURACIÓN — completar antes de publicar
@@ -752,24 +766,27 @@ async function fetchConTimeout(url, opts={}, timeoutMs=10000){
   }
 }
 
+// Envuelve cualquier promesa con un timeout — evita que la app quede
+// "pensando" para siempre si Firestore no responde.
+function conTimeout(promesa, ms=10000){
+  return Promise.race([
+    promesa,
+    new Promise((_, reject)=>setTimeout(()=>reject(Object.assign(new Error('Timeout'),{name:'AbortError'})), ms))
+  ]);
+}
+
 async function cargarDatos(){
   mostrarLoader(true);
-  if(!ADMIN_CFG.sheetdbURL){
+  try {
+    const snap = await conTimeout(db.collection('reservas').get(), 10000);
+    reservas = snap.docs.map(d=>d.data()).filter(x=>x && x.codigo);
+  } catch(e){
+    console.warn('Error cargando reservas:', e);
+    const msg = (e && e.name==='AbortError')
+      ? '⚠ Tardó demasiado en responder. Mostrando datos demo.'
+      : '⚠ Error al cargar reservas. Verifcá la conexión.';
+    showToast(msg, 'err', 5000);
     reservas = demoData();
-  } else {
-    try {
-      const r = await fetchConTimeout(ADMIN_CFG.sheetdbURL + '?sheet=' + encodeURIComponent(ADMIN_CFG.sheetdbHojaReservas) + '&t=' + Date.now(), {}, 10000);
-      if(!r.ok) throw new Error('HTTP ' + r.status);
-      const data = await r.json();
-      reservas = data.map(filaSheetDBAReserva).filter(x=>x && x.codigo);
-    } catch(e){
-      console.warn('Error cargando reservas:', e);
-      const msg = (e && e.name==='AbortError')
-        ? '⚠ Tardó demasiado en responder. Mostrando datos demo.'
-        : '⚠ Error al cargar reservas. Verifcá la conexión.';
-      showToast(msg, 'err', 5000);
-      reservas = demoData();
-    }
   }
   calcularOcupacion();
   actualizarStats();
@@ -1434,32 +1451,10 @@ function cambiarTab(name, el){
 let cobrosManuales = []; // Se carga desde Google Sheets
 
 // Mapea una fila JSON de SheetDB (hoja CajaManual) al formato interno de cobro.
-function filaSheetDBACobro(row){
-  if(!row) return null;
-  const horaRaw = String(row['Hora']||'0');
-  const horaNum = parseInt(horaRaw.replace(':00:00','').replace(':00','').replace('hs','').trim())||0;
-  return {
-    id:        parseInt(row['ID'],10) || 0,
-    timestamp: row['Timestamp']||'',
-    nombre:    row['Nombre']||'',
-    tel:       row['Telefono']||'',
-    fecha:     row['Fecha']||'',
-    hora:      horaNum,
-    cupos:     parseInt(row['Cupos'],10) || 0,
-    medio:     row['Medio']||'',
-    monto:     parseFloat(row['Monto']) || 0,
-    tipo:      row['Tipo']||'Manual',
-    obs:       row['Observación']||'',
-  };
-}
-
 async function cargarCobrosManualles(){
-  if(!ADMIN_CFG.sheetdbURL) return;
   try {
-    const r = await fetchConTimeout(ADMIN_CFG.sheetdbURL + '?sheet=CajaManual&t=' + Date.now(), {}, 10000);
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-    cobrosManuales = data.map(filaSheetDBACobro).filter(c=>c && c.id);
+    const snap = await conTimeout(db.collection('cobrosManuales').get(), 10000);
+    cobrosManuales = snap.docs.map(d=>d.data()).filter(c=>c && c.id);
   } catch(e){
     const msg = (e && e.name==='AbortError') ? 'Timeout esperando cobros manuales' : e;
     console.log('Error cargando cobros:', msg);
@@ -1717,27 +1712,11 @@ function guardarCobroManual(){
 
     cobrosManuales[idx] = cobroEditado;
 
-    // Sincronizar con Sheets vía SheetDB
-    if(ADMIN_CFG.sheetdbURL){
-      const filaEditada = {
-        'Nombre':       cobroEditado.nombre,
-        'Telefono':     cobroEditado.tel,
-        'Fecha':        cobroEditado.fecha,
-        'Hora':         cobroEditado.hora + ':00',
-        'Cupos':        cobroEditado.cupos,
-        'Medio':        cobroEditado.medio,
-        'Monto':        cobroEditado.monto,
-        'Observación':  cobroEditado.obs,
-      };
-      showToast('⟳ Sincronizando…', 'info', 8000);
-      fetchConTimeout(ADMIN_CFG.sheetdbURL + '/ID/' + cobroEditado.id + '?sheet=CajaManual', {
-        method: 'PATCH',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({data: filaEditada})
-      }, 10000)
-        .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); showToast('✓ Cobro de ' + nombre + ' sincronizado', 'ok'); })
-        .catch(()=>{ showToast('⚠ Cambios guardados localmente. Error al sincronizar.', 'err', 5000); });
-    }
+    // Sincronizar con Firestore
+    showToast('⟳ Sincronizando…', 'info', 8000);
+    conTimeout(db.collection('cobrosManuales').doc(String(cobroEditado.id)).set(cobroEditado), 10000)
+      .then(()=>{ showToast('✓ Cobro de ' + nombre + ' sincronizado', 'ok'); })
+      .catch(()=>{ showToast('⚠ Cambios guardados localmente. Error al sincronizar.', 'err', 5000); });
 
   } else {
     // ── MODO CREACIÓN ─────────────────────────────
@@ -1754,31 +1733,10 @@ function guardarCobroManual(){
     // Agregar al array local inmediatamente para que aparezca sin recargar
     cobrosManuales.push(cobro);
 
-    if(ADMIN_CFG.sheetdbURL){
-      const filaNueva = {
-        'ID':           cobro.id,
-        'Timestamp':    cobro.timestamp,
-        'Nombre':       cobro.nombre,
-        'Telefono':     cobro.tel,
-        'Fecha':        cobro.fecha,
-        'Hora':         cobro.hora + ':00',
-        'Cupos':        cobro.cupos,
-        'Medio':        cobro.medio,
-        'Monto':        cobro.monto,
-        'Tipo':         cobro.tipo,
-        'Observación':  cobro.obs,
-      };
-      showToast('⟳ Sincronizando…', 'info', 8000);
-      fetchConTimeout(ADMIN_CFG.sheetdbURL + '?sheet=CajaManual', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({data:[filaNueva]})
-      }, 10000)
-        .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok'); })
-        .catch(()=>{ showToast('⚠ Cobro guardado localmente. Error al sincronizar.', 'err', 5000); });
-    } else {
-      showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok');
-    }
+    showToast('⟳ Sincronizando…', 'info', 8000);
+    conTimeout(db.collection('cobrosManuales').doc(String(cobro.id)).set(cobro), 10000)
+      .then(()=>{ showToast('✓ Cobro de $' + parseFloat(monto).toLocaleString('es-AR') + ' registrado', 'ok'); })
+      .catch(()=>{ showToast('⚠ Cobro guardado localmente. Error al sincronizar.', 'err', 5000); });
   }
 
   _resetFormCobro();
@@ -1833,9 +1791,7 @@ function _confirmarEliminacion(id, nombre, monto){
 function _confirmarSi(id){
   document.getElementById('_confirm-panel').style.display='none';
   cobrosManuales = cobrosManuales.filter(c=>c.id!==id);
-  if(ADMIN_CFG.sheetdbURL){
-    fetchConTimeout(ADMIN_CFG.sheetdbURL + '/ID/' + id + '?sheet=CajaManual', {method:'DELETE'}, 10000).catch(()=>{});
-  }
+  conTimeout(db.collection('cobrosManuales').doc(String(id)).delete(), 10000).catch(()=>{});
   showToast('Cobro eliminado', 'info');
   renderCaja();
 }
