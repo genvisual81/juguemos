@@ -401,7 +401,8 @@ tr:hover td{background:rgba(244,131,31,0.03);}
 
       <!-- FORMULARIO RESERVA MANUAL (oculto por default) -->
       <div class="caja-box" id="rf-panel" style="display:none;margin-bottom:1rem;">
-        <div class="caja-box-title">➕ Agregar reserva manual</div>
+        <div class="caja-box-title" id="rf-titulo">➕ Agregar reserva manual</div>
+        <input type="hidden" id="rf-edit-codigo" value="">
         <div class="manual-form">
           <div class="mf-row">
             <div>
@@ -461,7 +462,7 @@ tr:hover td{background:rgba(244,131,31,0.03);}
         <table>
           <thead><tr>
             <th>Fecha</th><th>Horario</th><th>Nombre</th><th>Tipo</th>
-            <th>Cupos</th><th>Monto</th><th>Código</th><th>Teléfono</th><th>Email</th><th>Estado</th>
+            <th>Cupos</th><th>Monto</th><th>Código</th><th>Teléfono</th><th>Email</th><th>Estado</th><th>Acciones</th>
           </tr></thead>
           <tbody id="tbl-body"></tbody>
         </table>
@@ -1175,26 +1176,13 @@ async function confirmarPago(codigo, btnEl){
   const r = reservas.find(x=>x.codigo===codigo);
   if(!r){ showToast('Error: reserva no encontrada.', 'err'); return; }
 
-  if(!ADMIN_CFG.appsScriptURL){
-    showToast('⚠ Falta configurar appsScriptURL.', 'err', 5000);
-    return;
-  }
-
   if(btnEl){
     btnEl.disabled = true;
     btnEl.textContent = '⟳ Confirmando…';
   }
 
   try{
-    const url = ADMIN_CFG.appsScriptURL +
-      '?action=confirmarReserva&codigo=' + encodeURIComponent(codigo);
-    const resp = await fetch(url);
-    if(!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json().catch(()=>({ok:true})); // tolera respuesta no-JSON
-
-    if(data && data.ok===false){
-      throw new Error(data.error || 'El servidor rechazó la confirmación');
-    }
+    await conTimeout(db.collection('reservas').doc(codigo).update({estado:'Pagado'}), 10000);
 
     // Reflejar el cambio localmente sin esperar otro fetch completo
     r.estado = 'Pagado';
@@ -1206,7 +1194,7 @@ async function confirmarPago(codigo, btnEl){
     showToast('✓ Reserva de ' + r.nombre + ' confirmada y sincronizada', 'ok');
   } catch(e){
     console.warn('Error al confirmar pago:', e);
-    showToast('⚠ No se pudo confirmar en la planilla. Reintentá.', 'err', 5000);
+    showToast('⚠ No se pudo confirmar en la base. Reintentá.', 'err', 5000);
     if(btnEl){
       btnEl.disabled = false;
       btnEl.textContent = '✓ Confirmar';
@@ -1228,7 +1216,7 @@ function renderTabla(){
 
   const tbody=document.getElementById('tbl-body');
   if(fil.length===0){
-    tbody.innerHTML='<tr class="empty-row"><td colspan="10">Sin reservas que coincidan</td></tr>';
+    tbody.innerHTML='<tr class="empty-row"><td colspan="11">Sin reservas que coincidan</td></tr>';
     document.getElementById('tbl-count').textContent='';
     return;
   }
@@ -1269,6 +1257,12 @@ function renderTabla(){
            ✓ Confirmar
          </button>`
       }</td>
+      <td style="white-space:nowrap;">
+        <button onclick="editarReservaAdmin('${r.codigo}')" title="Editar reserva"
+          style="background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:7px 9px;cursor:pointer;margin-right:4px;font-size:.85rem;">✏️</button>
+        <button onclick="eliminarReservaAdmin('${r.codigo}')" title="Eliminar reserva"
+          style="background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:.85rem;">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -1545,13 +1539,15 @@ async function cargarCobrosManualles(){
 }
 
 // ═══════════════════════════════════════════════
-// RESERVA MANUAL (agregar desde el panel admin)
+// RESERVA MANUAL (agregar / editar / eliminar desde el panel admin)
 // ═══════════════════════════════════════════════
 function toggleFormReservaManual(){
   const panel = document.getElementById('rf-panel');
   const visible = panel.style.display !== 'none';
   panel.style.display = visible ? 'none' : 'block';
   if(!visible){
+    document.getElementById('rf-edit-codigo').value = '';
+    document.getElementById('rf-titulo').textContent = '➕ Agregar reserva manual';
     document.getElementById('rf-nombre').value = '';
     document.getElementById('rf-tel').value = '';
     document.getElementById('rf-mail').value = '';
@@ -1561,6 +1557,33 @@ function toggleFormReservaManual(){
     panel.scrollIntoView({behavior:'smooth', block:'start'});
     document.getElementById('rf-nombre').focus();
   }
+}
+
+// Abre el panel precargado con los datos de una reserva existente para editarla.
+function editarReservaAdmin(codigo){
+  const r = reservas.find(x=>x.codigo===codigo);
+  if(!r){ showToast('Error: reserva no encontrada.', 'err'); return; }
+
+  const panel = document.getElementById('rf-panel');
+  panel.style.display = 'block';
+  document.getElementById('rf-edit-codigo').value = codigo;
+  document.getElementById('rf-titulo').textContent = '✏️ Editando reserva de ' + r.nombre;
+  document.getElementById('rf-nombre').value = r.nombre || '';
+  document.getElementById('rf-tel').value = r.tel || '';
+  document.getElementById('rf-mail').value = r.mail || '';
+  document.getElementById('rf-pax').value = r.participantes || 1;
+  document.getElementById('rf-estado').value = estaPagado(r) ? 'Pagado' : 'Pendiente de pago';
+
+  const fechaISO = toISOFecha(r.fecha);
+  const selF = document.getElementById('rf-fecha');
+  if(selF) selF.value = fechaISO || '';
+  const selH = document.getElementById('rf-hora');
+  if(selH) selH.value = r.hora != null ? String(r.hora) : '';
+
+  document.getElementById('rf-total').value = r.total || '';
+
+  panel.scrollIntoView({behavior:'smooth', block:'start'});
+  document.getElementById('rf-nombre').focus();
 }
 
 // Sugiere el total según hora (promo 2x1/3x2) y participantes — el admin puede editarlo igual.
@@ -1584,6 +1607,7 @@ function _generarCodigoReserva(){
 }
 
 function guardarReservaManual(){
+  const editCodigo = document.getElementById('rf-edit-codigo').value;
   const nombre = document.getElementById('rf-nombre').value.trim();
   const tel    = document.getElementById('rf-tel').value.trim();
   const mail   = document.getElementById('rf-mail').value.trim();
@@ -1603,15 +1627,103 @@ function guardarReservaManual(){
   const promo3x2 = hora>=14 && hora<=19;
   const promo = (pax>1 && promo2x1) ? '2x1' : (pax>1 && promo3x2) ? '3x2' : 'No';
 
-  const codigo = _generarCodigoReserva();
-  const reserva = {
-    timestamp: new Date().toLocaleString('es-AR'),
-    codigo, nombre, tel, mail,
-    fecha, hora, participantes: pax, total, promo, estado,
-    paymentId: 'Manual (admin)',
-  };
+  if(editCodigo){
+    // ── MODO EDICIÓN ──────────────────────────────
+    const idx = reservas.findIndex(r=>r.codigo===editCodigo);
+    if(idx===-1){ showToast('Error: reserva no encontrada.', 'err'); return; }
 
-  reservas.push(reserva);
+    const reservaEditada = {
+      ...reservas[idx],
+      nombre, tel, mail, fecha, hora, participantes: pax, total, promo, estado,
+    };
+    reservas[idx] = reservaEditada;
+    calcularOcupacion();
+    actualizarStats();
+    poblarFiltros();
+    renderTabla();
+    renderAgenda();
+    renderCharts();
+    renderEstadisticas();
+
+    showToast('⟳ Sincronizando…', 'info', 8000);
+    conTimeout(db.collection('reservas').doc(editCodigo).set(reservaEditada), 10000)
+      .then(()=>{ showToast('✓ Reserva de ' + nombre + ' actualizada', 'ok'); })
+      .catch(()=>{ showToast('⚠ Cambios guardados localmente. Error al sincronizar.', 'err', 5000); });
+
+  } else {
+    // ── MODO CREACIÓN ─────────────────────────────
+    const codigo = _generarCodigoReserva();
+    const reserva = {
+      timestamp: new Date().toLocaleString('es-AR'),
+      codigo, nombre, tel, mail,
+      fecha, hora, participantes: pax, total, promo, estado,
+      paymentId: 'Manual (admin)',
+    };
+
+    reservas.push(reserva);
+    calcularOcupacion();
+    actualizarStats();
+    poblarFiltros();
+    renderTabla();
+    renderAgenda();
+    renderCharts();
+    renderEstadisticas();
+
+    showToast('⟳ Sincronizando…', 'info', 8000);
+    conTimeout(db.collection('reservas').doc(codigo).set(reserva), 10000)
+      .then(()=>{ showToast('✓ Reserva de ' + nombre + ' registrada — código ' + codigo, 'ok'); })
+      .catch(()=>{ showToast('⚠ Reserva guardada localmente. Error al sincronizar.', 'err', 5000); });
+  }
+
+  toggleFormReservaManual();
+}
+
+function eliminarReservaAdmin(codigo){
+  // Si estamos editando esta misma reserva, cerrar el panel primero
+  if(document.getElementById('rf-edit-codigo').value === codigo){
+    document.getElementById('rf-panel').style.display = 'none';
+  }
+  const r = reservas.find(x=>x.codigo===codigo);
+  if(!r) return;
+  _confirmarEliminacionReserva(codigo, r.nombre);
+}
+
+function _confirmarEliminacionReserva(codigo, nombre){
+  let panel = document.getElementById('_confirm-panel-reserva');
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = '_confirm-panel-reserva';
+    panel.style.cssText = [
+      'position:fixed','bottom:calc(5rem + var(--sab))','left:50%',
+      'transform:translateX(-50%)','z-index:9998',
+      'background:var(--card)','border:1.5px solid var(--red)',
+      'border-radius:12px','padding:14px 18px',
+      'box-shadow:0 4px 20px rgba(0,0,0,.2)',
+      'font-family:Quicksand,sans-serif','min-width:260px','max-width:90vw',
+      'text-align:center'
+    ].join(';');
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = `
+    <div style="font-size:.88rem;font-weight:700;margin-bottom:10px;color:var(--text);">
+      ¿Eliminar la reserva de <span style="color:var(--red)">${nombre}</span>?<br>
+      <span style="font-size:.8rem;color:var(--muted);">Código ${codigo} — esta acción no se puede deshacer</span>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;">
+      <button onclick="_confirmarSiReserva('${codigo}')"
+        style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-family:Quicksand,sans-serif;font-weight:700;cursor:pointer;">
+        Sí, eliminar
+      </button>
+      <button onclick="_confirmarNoReserva()"
+        style="background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 18px;font-family:Quicksand,sans-serif;font-weight:700;cursor:pointer;">
+        Cancelar
+      </button>
+    </div>`;
+  panel.style.display = 'block';
+}
+function _confirmarSiReserva(codigo){
+  document.getElementById('_confirm-panel-reserva').style.display='none';
+  reservas = reservas.filter(r=>r.codigo!==codigo);
   calcularOcupacion();
   actualizarStats();
   poblarFiltros();
@@ -1619,13 +1731,11 @@ function guardarReservaManual(){
   renderAgenda();
   renderCharts();
   renderEstadisticas();
-
-  showToast('⟳ Sincronizando…', 'info', 8000);
-  conTimeout(db.collection('reservas').doc(codigo).set(reserva), 10000)
-    .then(()=>{ showToast('✓ Reserva de ' + nombre + ' registrada — código ' + codigo, 'ok'); })
-    .catch(()=>{ showToast('⚠ Reserva guardada localmente. Error al sincronizar.', 'err', 5000); });
-
-  toggleFormReservaManual();
+  conTimeout(db.collection('reservas').doc(codigo).delete(), 10000).catch(()=>{});
+  showToast('Reserva eliminada', 'info');
+}
+function _confirmarNoReserva(){
+  document.getElementById('_confirm-panel-reserva').style.display='none';
 }
 
 function setCajaHoy(){
