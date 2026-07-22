@@ -392,11 +392,71 @@ tr:hover td{background:rgba(244,131,31,0.03);}
 
     <!-- TAB RESERVAS -->
     <div id="tc-reservas" class="tc active">
-      <div class="filters">
+      <div class="filters" style="align-items:center;">
         <input type="text" class="f-input" id="buscar" placeholder="🔍 Buscar nombre, email, código..." oninput="renderTabla()">
         <select class="f-input" id="fil-fecha" onchange="renderTabla()"><option value="">— Todas las fechas —</option></select>
         <select class="f-input" id="fil-hora" onchange="renderTabla()"><option value="">— Todos los horarios —</option></select>
+        <button class="btn-registrar" style="width:auto;margin-bottom:0;padding:9px 16px;white-space:nowrap;" onclick="toggleFormReservaManual()">➕ Agregar reserva manual</button>
       </div>
+
+      <!-- FORMULARIO RESERVA MANUAL (oculto por default) -->
+      <div class="caja-box" id="rf-panel" style="display:none;margin-bottom:1rem;">
+        <div class="caja-box-title">➕ Agregar reserva manual</div>
+        <div class="manual-form">
+          <div class="mf-row">
+            <div>
+              <div class="mf-label">Nombre</div>
+              <input class="mf-input" type="text" id="rf-nombre" placeholder="Nombre del cliente">
+            </div>
+            <div>
+              <div class="mf-label">Teléfono</div>
+              <input class="mf-input" type="tel" id="rf-tel" placeholder="Ej: 2914123456">
+            </div>
+          </div>
+          <div class="mf-row">
+            <div>
+              <div class="mf-label">Email (opcional)</div>
+              <input class="mf-input" type="email" id="rf-mail" placeholder="cliente@mail.com">
+            </div>
+            <div>
+              <div class="mf-label">Participantes</div>
+              <input class="mf-input" type="number" id="rf-pax" min="1" max="40" value="1" oninput="_sugerirTotal()">
+            </div>
+          </div>
+          <div class="mf-row">
+            <div>
+              <div class="mf-label">Fecha</div>
+              <select class="mf-input" id="rf-fecha" onchange="_sugerirTotal()"></select>
+            </div>
+            <div>
+              <div class="mf-label">Horario</div>
+              <select class="mf-input" id="rf-hora" onchange="_sugerirTotal()"></select>
+            </div>
+          </div>
+          <div class="mf-row">
+            <div>
+              <div class="mf-label">Total a cobrar</div>
+              <input class="mf-input" type="number" id="rf-total" placeholder="Ej: 20000">
+            </div>
+            <div>
+              <div class="mf-label">Estado</div>
+              <select class="mf-input" id="rf-estado">
+                <option value="Pagado">✓ Pagado</option>
+                <option value="Pendiente de pago">Pendiente de pago</option>
+              </select>
+            </div>
+          </div>
+          <div class="mf-row">
+            <div style="display:flex;align-items:flex-end;">
+              <button class="btn-registrar" style="margin-bottom:0;" onclick="guardarReservaManual()">✅ Registrar reserva</button>
+            </div>
+            <div style="display:flex;align-items:flex-end;">
+              <button class="btn-cerrar-caja" style="width:100%;" onclick="toggleFormReservaManual()">✕ Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="tbl-wrap">
         <table>
           <thead><tr>
@@ -1043,6 +1103,29 @@ function poblarFiltros(){
       ? prevH
       : String(horas[0] ?? '');
   }
+
+  // ── Selectores del formulario de reserva manual ──────────
+  const selRfFecha = document.getElementById('rf-fecha');
+  if(selRfFecha){
+    const hoy = new Date().toISOString().split('T')[0];
+    const prevVal = selRfFecha.value;
+    selRfFecha.innerHTML = fechas.map(f =>
+      `<option value="${f}">${fmtFecha(f)}</option>`
+    ).join('');
+    selRfFecha.value = (prevVal && fechas.includes(prevVal))
+      ? prevVal
+      : (fechas.includes(hoy) ? hoy : (fechas[0] || ''));
+  }
+  const selRfHora = document.getElementById('rf-hora');
+  if(selRfHora){
+    const prevH = selRfHora.value;
+    selRfHora.innerHTML = horas.map(h =>
+      `<option value="${h}">${h} hs</option>`
+    ).join('');
+    selRfHora.value = (prevH && horas.includes(parseInt(prevH,10)))
+      ? prevH
+      : String(horas[0] ?? '');
+  }
 }
 
 function fmtFecha(f){
@@ -1459,6 +1542,90 @@ async function cargarCobrosManualles(){
     const msg = (e && e.name==='AbortError') ? 'Timeout esperando cobros manuales' : e;
     console.log('Error cargando cobros:', msg);
   }
+}
+
+// ═══════════════════════════════════════════════
+// RESERVA MANUAL (agregar desde el panel admin)
+// ═══════════════════════════════════════════════
+function toggleFormReservaManual(){
+  const panel = document.getElementById('rf-panel');
+  const visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : 'block';
+  if(!visible){
+    document.getElementById('rf-nombre').value = '';
+    document.getElementById('rf-tel').value = '';
+    document.getElementById('rf-mail').value = '';
+    document.getElementById('rf-pax').value = '1';
+    document.getElementById('rf-estado').value = 'Pagado';
+    _sugerirTotal();
+    panel.scrollIntoView({behavior:'smooth', block:'start'});
+    document.getElementById('rf-nombre').focus();
+  }
+}
+
+// Sugiere el total según hora (promo 2x1/3x2) y participantes — el admin puede editarlo igual.
+function _sugerirTotal(){
+  const hora = parseInt(document.getElementById('rf-hora').value, 10);
+  const pax = parseInt(document.getElementById('rf-pax').value, 10) || 1;
+  const promo2x1 = hora===12 || hora===13;
+  const promo3x2 = hora>=14 && hora<=19;
+  let cobrado = pax;
+  if(promo2x1) cobrado = Math.ceil(pax/2);
+  else if(promo3x2) cobrado = Math.ceil(pax*2/3);
+  document.getElementById('rf-total').value = cobrado * (ADMIN_CFG.precio||20000);
+}
+
+function _generarCodigoReserva(){
+  let codigo;
+  do {
+    codigo = 'JT' + Date.now().toString(36).toUpperCase().slice(-6) + Math.floor(Math.random()*10);
+  } while(reservas.some(r=>r.codigo===codigo));
+  return codigo;
+}
+
+function guardarReservaManual(){
+  const nombre = document.getElementById('rf-nombre').value.trim();
+  const tel    = document.getElementById('rf-tel').value.trim();
+  const mail   = document.getElementById('rf-mail').value.trim();
+  const fecha  = document.getElementById('rf-fecha').value;
+  const hora   = parseInt(document.getElementById('rf-hora').value, 10);
+  const pax    = parseInt(document.getElementById('rf-pax').value, 10);
+  const total  = parseFloat(document.getElementById('rf-total').value);
+  const estado = document.getElementById('rf-estado').value;
+
+  if(!nombre || !fecha || isNaN(hora) || !pax || isNaN(total)){
+    showToast('⚠ Completá al menos: Nombre, Fecha, Horario, Participantes y Total.', 'err', 4000);
+    if(!nombre) document.getElementById('rf-nombre').focus();
+    return;
+  }
+
+  const promo2x1 = hora===12 || hora===13;
+  const promo3x2 = hora>=14 && hora<=19;
+  const promo = (pax>1 && promo2x1) ? '2x1' : (pax>1 && promo3x2) ? '3x2' : 'No';
+
+  const codigo = _generarCodigoReserva();
+  const reserva = {
+    timestamp: new Date().toLocaleString('es-AR'),
+    codigo, nombre, tel, mail,
+    fecha, hora, participantes: pax, total, promo, estado,
+    paymentId: 'Manual (admin)',
+  };
+
+  reservas.push(reserva);
+  calcularOcupacion();
+  actualizarStats();
+  poblarFiltros();
+  renderTabla();
+  renderAgenda();
+  renderCharts();
+  renderEstadisticas();
+
+  showToast('⟳ Sincronizando…', 'info', 8000);
+  conTimeout(db.collection('reservas').doc(codigo).set(reserva), 10000)
+    .then(()=>{ showToast('✓ Reserva de ' + nombre + ' registrada — código ' + codigo, 'ok'); })
+    .catch(()=>{ showToast('⚠ Reserva guardada localmente. Error al sincronizar.', 'err', 5000); });
+
+  toggleFormReservaManual();
 }
 
 function setCajaHoy(){
